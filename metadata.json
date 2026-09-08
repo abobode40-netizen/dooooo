@@ -1,0 +1,8 @@
+{
+  "name": "نظام إدارة المخازن والمبيعات والنواقص",
+  "description": "نظام متكامل لإدارة المخازن، نقاط البيع (POS)، تتبع النواقص، سجل تغيرات الأسعار، وإدارة ديون العملاء ودرج النقدية",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
