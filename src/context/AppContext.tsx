@@ -8,6 +8,8 @@ import {
   PriceChangeItem,
   Sale,
   SaleItem,
+  Purchase,
+  PurchaseItem,
   CashCounterSession,
   CustomerDebt,
   DebtTransaction,
@@ -29,6 +31,7 @@ interface AppContextType {
   priceChangeDays: PriceChangeDay[];
   priceChangeItems: PriceChangeItem[];
   sales: Sale[];
+  purchases: Purchase[];
   cashSessions: CashCounterSession[];
   customerDebts: CustomerDebt[];
   toasts: ToastInfo[];
@@ -39,6 +42,10 @@ interface AppContextType {
   addProduct: (product: Omit<Product, 'id' | 'created_at' | 'updated_at'>) => void;
   updateProduct: (id: string, product: Partial<Product>) => void;
   deleteProduct: (id: string) => void;
+  bulkImportProducts: (
+    items: Array<Omit<Product, 'id' | 'created_at' | 'updated_at'>>,
+    mode?: 'merge' | 'append' | 'replace'
+  ) => { imported: number; updated: number; added: number; unchanged: number };
 
   // Shortages
   createShortageList: (dateStr: string) => string;
@@ -64,8 +71,35 @@ interface AppContextType {
 
   // POS & Sales
   completeSale: (sale: Omit<Sale, 'id' | 'created_at' | 'invoice_number'>) => Sale;
+  deleteSale: (saleId: string) => void;
 
-  // Customer Debts
+  // Purchases
+  completePurchase: (purchase: Omit<Purchase, 'id' | 'created_at' | 'invoice_number'>) => Purchase;
+  deletePurchase: (purchaseId: string) => void;
+
+  // Customer Debts & Directory
+  addCustomer: (data: {
+    customer_code?: string;
+    customer_name: string;
+    phone: string;
+    phone2?: string;
+    address?: string;
+    initialDebt?: number;
+    notes?: string;
+  }) => CustomerDebt;
+  updateCustomer: (id: string, updates: Partial<CustomerDebt>) => void;
+  deleteCustomer: (id: string) => void;
+  bulkImportCustomers: (
+    items: Array<{
+      customer_code?: string;
+      customer_name: string;
+      phone?: string;
+      phone2?: string;
+      address?: string;
+      initialDebt?: number;
+      notes?: string;
+    }>
+  ) => { imported: number; updated: number; added: number };
   addCustomerDebt: (name: string, phone: string, initialDebt: number, notes?: string) => void;
   addDebtTransaction: (customerId: string, type: 'debt_increase' | 'payment', amount: number, notes: string) => void;
   deleteCustomerDebt: (customerId: string) => void;
@@ -77,6 +111,9 @@ interface AppContextType {
   exportDatabaseJSON: () => string;
   importDatabaseJSON: (jsonString: string) => boolean;
   resetToDefaultDatabase: () => void;
+  exportBackupJSON: () => string;
+  importBackupJSON: (jsonString: string) => boolean;
+  resetToInitialData: () => void;
 }
 
 const STORAGE_KEY = 'store_pos_erp_database_v1';
@@ -91,6 +128,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [priceChangeDays, setPriceChangeDays] = useState<PriceChangeDay[]>([]);
   const [priceChangeItems, setPriceChangeItems] = useState<PriceChangeItem[]>([]);
   const [sales, setSales] = useState<Sale[]>([]);
+  const [purchases, setPurchases] = useState<Purchase[]>([]);
   const [cashSessions, setCashSessions] = useState<CashCounterSession[]>([]);
   const [customerDebts, setCustomerDebts] = useState<CustomerDebt[]>([]);
   const [toasts, setToasts] = useState<ToastInfo[]>([]);
@@ -109,6 +147,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           setPriceChangeDays(parsed.tables.price_change_days || []);
           setPriceChangeItems(parsed.tables.price_change_items || []);
           setSales(parsed.tables.sales || []);
+          setPurchases(parsed.tables.purchases || []);
           setCashSessions(parsed.tables.cash_counter_sessions || []);
           setCustomerDebts(parsed.tables.customer_debts || []);
           return;
@@ -126,38 +165,46 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setPriceChangeDays(INITIAL_DATABASE.tables.price_change_days);
     setPriceChangeItems(INITIAL_DATABASE.tables.price_change_items);
     setSales(INITIAL_DATABASE.tables.sales || []);
+    setPurchases([]);
     setCashSessions(INITIAL_DATABASE.tables.cash_counter_sessions || []);
     setCustomerDebts(INITIAL_DATABASE.tables.customer_debts || []);
   }, []);
 
-  // Save to LocalStorage whenever state changes
+  // Debounced Save to LocalStorage (eliminates UI lag)
   useEffect(() => {
     if (products.length === 0 && shortageLists.length === 0) return;
-    const backup: DatabaseBackup = {
-      version: 1,
-      created_at: new Date().toISOString(),
-      tables: {
-        products,
-        sales,
-        sale_items: sales.flatMap(s => s.items),
-        shortage_lists: shortageLists,
-        shortage_items: shortageItems,
-        price_snapshots: priceSnapshots,
-        price_change_days: priceChangeDays,
-        price_change_items: priceChangeItems,
-        cash_counter_sessions: cashSessions,
-        cash_counter_denominations: [],
-        customer_debts: customerDebts
+
+    const timer = setTimeout(() => {
+      const backup: DatabaseBackup = {
+        version: 1,
+        created_at: new Date().toISOString(),
+        tables: {
+          products,
+          sales,
+          purchases,
+          sale_items: [],
+          shortage_lists: shortageLists,
+          shortage_items: shortageItems,
+          price_snapshots: priceSnapshots,
+          price_change_days: priceChangeDays,
+          price_change_items: priceChangeItems,
+          cash_counter_sessions: cashSessions,
+          cash_counter_denominations: [],
+          customer_debts: customerDebts
+        }
+      };
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(backup));
+      } catch (e) {
+        console.warn('LocalStorage save failed:', e);
       }
-    };
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(backup));
-    } catch (e) {
-      console.warn('LocalStorage save failed:', e);
-    }
+    }, 400);
+
+    return () => clearTimeout(timer);
   }, [
     products,
     sales,
+    purchases,
     shortageLists,
     shortageItems,
     priceSnapshots,
@@ -212,6 +259,131 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const target = products.find(p => p.id === id);
     setProducts(prev => prev.filter(p => p.id !== id));
     showToast(`تم حذف الصنف ${target ? `"${target.name}"` : ''}`);
+  };
+
+  const bulkImportProducts = (
+    items: Array<Omit<Product, 'id' | 'created_at' | 'updated_at'>>,
+    mode: 'merge' | 'append' | 'replace' = 'merge'
+  ) => {
+    const now = new Date().toISOString();
+    const todayStr = now.split('T')[0];
+    let updatedCount = 0;
+    let addedCount = 0;
+    let unchangedCount = 0;
+
+    if (mode === 'replace') {
+      const newProductList: Product[] = items.map((item, idx) => ({
+        ...item,
+        id: crypto.randomUUID ? crypto.randomUUID() : `prod-imp-${Date.now()}-${idx}`,
+        created_at: now,
+        updated_at: now
+      }));
+      setProducts(newProductList);
+      showToast(`تم استبدال الأصناف بـ ${newProductList.length} صنف مستورد بنجاح`);
+      return { imported: newProductList.length, updated: 0, added: newProductList.length, unchanged: 0 };
+    }
+
+    let day = priceChangeDays.find(d => d.day_date === todayStr);
+    let dayId = day?.id;
+    if (!dayId) {
+      dayId = crypto.randomUUID ? crypto.randomUUID() : 'pday-' + Date.now();
+      const newDay: PriceChangeDay = {
+        id: dayId,
+        day_date: todayStr,
+        created_at: now
+      };
+      setPriceChangeDays(prev => [newDay, ...prev]);
+    }
+
+    setProducts(prev => {
+      const existingByCode = new Map<string, Product>(prev.map(p => [p.code.toLowerCase().trim(), p]));
+      const existingByName = new Map<string, Product>(prev.map(p => [p.name.toLowerCase().trim(), p]));
+      const resultList = [...prev];
+      const newChangeItems: PriceChangeItem[] = [];
+
+      items.forEach((item, idx) => {
+        const codeKey = item.code?.toLowerCase().trim();
+        const nameKey = item.name?.toLowerCase().trim();
+        const match: Product | undefined = (codeKey ? existingByCode.get(codeKey) : undefined) || (nameKey ? existingByName.get(nameKey) : undefined);
+
+        if (match && mode !== 'append') {
+          // EXISTING PRODUCT: check price differences
+          const oldW = Number(match.price_wholesale) || 0;
+          const newW = Number(item.price_wholesale) > 0 ? Number(item.price_wholesale) : oldW;
+          const oldR = Number(match.price) || 0;
+          const newR = Number(item.price) > 0 ? Number(item.price) : oldR;
+
+          const hasPriceDiff = (newW !== oldW) || (newR !== oldR);
+
+          const targetIndex = resultList.findIndex(p => p.id === match.id);
+          if (targetIndex !== -1) {
+            resultList[targetIndex] = {
+              ...resultList[targetIndex],
+              name: item.name || resultList[targetIndex].name,
+              unit: item.unit || resultList[targetIndex].unit,
+              price: newR,
+              price_wholesale: newW,
+              stock: item.stock !== undefined && item.stock !== null ? item.stock : resultList[targetIndex].stock,
+              category: item.category || resultList[targetIndex].category,
+              updated_at: now
+            };
+          }
+
+          if (hasPriceDiff) {
+            updatedCount++;
+            newChangeItems.push({
+              id: crypto.randomUUID ? crypto.randomUUID() : `pitem-${Date.now()}-${idx}`,
+              day_id: dayId!,
+              product_id: match.id,
+              product_name: match.name,
+              code: match.code,
+              price_wholesale: newW,
+              price_retail: newR,
+              old_price_wholesale: oldW,
+              old_price_retail: oldR,
+              created_at: now,
+              is_new: false
+            });
+          } else {
+            unchangedCount++;
+          }
+        } else {
+          // NEW PRODUCT
+          const newId = crypto.randomUUID ? crypto.randomUUID() : `prod-imp-${Date.now()}-${idx}`;
+          const newProduct: Product = {
+            ...item,
+            id: newId,
+            created_at: now,
+            updated_at: now
+          };
+          resultList.unshift(newProduct);
+          addedCount++;
+
+          newChangeItems.push({
+            id: crypto.randomUUID ? crypto.randomUUID() : `pitem-${Date.now()}-${idx}`,
+            day_id: dayId!,
+            product_id: newId,
+            product_name: newProduct.name,
+            code: newProduct.code,
+            price_wholesale: newProduct.price_wholesale || 0,
+            price_retail: newProduct.price || 0,
+            old_price_wholesale: 0,
+            old_price_retail: 0,
+            created_at: now,
+            is_new: true
+          });
+        }
+      });
+
+      if (newChangeItems.length > 0) {
+        setPriceChangeItems(prevItems => [...newChangeItems, ...prevItems]);
+      }
+
+      return resultList;
+    });
+
+    showToast(`تم الاستيراد: ${addedCount} صنف جديد، ${updatedCount} صنف تغير سعره، ${unchangedCount} بدون تغيير`);
+    return { imported: items.length, updated: updatedCount, added: addedCount, unchanged: unchangedCount };
   };
 
   // Shortage Lists Handlers
@@ -405,15 +577,80 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return newSale;
   };
 
-  // Customer Debts
-  const addCustomerDebt = (name: string, phone: string, initialDebt: number, notes: string = '') => {
+  const deleteSale = (saleId: string) => {
+    const target = sales.find(s => s.id === saleId);
+    setSales(prev => prev.filter(s => s.id !== saleId));
+    showToast(`تم حذف الفاتورة ${target ? target.invoice_number : ''} بنجاح`);
+  };
+
+  // Purchases & Warehouse Inward
+  const completePurchase = (purchaseData: Omit<Purchase, 'id' | 'created_at' | 'invoice_number'>): Purchase => {
     const now = new Date().toISOString();
+    const invoiceNumber = 'PUR-' + (purchases.length + 1).toString().padStart(5, '0');
+    const newPurchaseId = crypto.randomUUID ? crypto.randomUUID() : 'pur-' + Date.now();
+
+    const newPurchase: Purchase = {
+      ...purchaseData,
+      id: newPurchaseId,
+      invoice_number: invoiceNumber,
+      created_at: now,
+      items: purchaseData.items.map(item => ({
+        ...item,
+        id: crypto.randomUUID ? crypto.randomUUID() : 'pitem-' + Math.random().toString(36).substr(2, 9),
+        purchase_id: newPurchaseId
+      }))
+    };
+
+    setPurchases(prev => [newPurchase, ...prev]);
+
+    // Add stock for products & update cost price
+    setProducts(prev =>
+      prev.map(p => {
+        const boughtItem = newPurchase.items.find(pi => pi.product_id === p.id);
+        if (boughtItem) {
+          return {
+            ...p,
+            stock: (p.stock || 0) + boughtItem.quantity,
+            cost_price: boughtItem.unit_cost > 0 ? boughtItem.unit_cost : p.cost_price,
+            updated_at: now
+          };
+        }
+        return p;
+      })
+    );
+
+    showToast(`تم حفظ إذن التوريد والمشتريات ${newPurchase.invoice_number} وإضافة الكميات للمخزن بنجاح`);
+    return newPurchase;
+  };
+
+  const deletePurchase = (purchaseId: string) => {
+    const target = purchases.find(p => p.id === purchaseId);
+    setPurchases(prev => prev.filter(p => p.id !== purchaseId));
+    showToast(`تم حذف إذن الشراء ${target ? target.invoice_number : ''} بنجاح`);
+  };
+
+  // Customer Debts & Directory
+  const addCustomer = (data: {
+    customer_code?: string;
+    customer_name: string;
+    phone: string;
+    phone2?: string;
+    address?: string;
+    initialDebt?: number;
+    notes?: string;
+  }): CustomerDebt => {
+    const now = new Date().toISOString();
+    const initialDebt = Number(data.initialDebt) || 0;
+    const code = data.customer_code?.trim() || `CUST-${(customerDebts.length + 1).toString().padStart(3, '0')}`;
     const newCust: CustomerDebt = {
-      id: crypto.randomUUID ? crypto.randomUUID() : 'debt-' + Date.now(),
-      customer_name: name,
-      phone,
+      id: crypto.randomUUID ? crypto.randomUUID() : 'cust-' + Date.now(),
+      customer_code: code,
+      customer_name: data.customer_name.trim(),
+      phone: data.phone.trim(),
+      phone2: data.phone2?.trim() || '',
+      address: data.address?.trim() || '',
       current_debt: initialDebt,
-      notes,
+      notes: data.notes?.trim() || '',
       created_at: now,
       updated_at: now,
       transactions: initialDebt > 0 ? [
@@ -422,12 +659,123 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           date: now.split('T')[0],
           type: 'debt_increase',
           amount: initialDebt,
-          notes: notes || 'رصيد افتتاحي / مديونية سابقة'
+          notes: data.notes || 'رصيد افتتاحي / مديونية سابقة'
         }
       ] : []
     };
     setCustomerDebts(prev => [newCust, ...prev]);
-    showToast(`تمت إضافة حساب العميل "${name}" بنجاح`);
+    showToast(`تمت إضافة العميل "${newCust.customer_name}" بنجاح`);
+    return newCust;
+  };
+
+  const updateCustomer = (id: string, updates: Partial<CustomerDebt>) => {
+    const now = new Date().toISOString();
+    setCustomerDebts(prev =>
+      prev.map(c => {
+        if (c.id === id) {
+          return {
+            ...c,
+            ...updates,
+            updated_at: now
+          };
+        }
+        return c;
+      })
+    );
+    showToast('تم تحديث بيانات العميل بنجاح');
+  };
+
+  const deleteCustomer = (id: string) => {
+    const target = customerDebts.find(c => c.id === id);
+    setCustomerDebts(prev => prev.filter(c => c.id !== id));
+    showToast(`تم حذف سجل العميل ${target ? `"${target.customer_name}"` : ''} بنجاح`);
+  };
+
+  const bulkImportCustomers = (
+    items: Array<{
+      customer_code?: string;
+      customer_name: string;
+      phone?: string;
+      phone2?: string;
+      address?: string;
+      initialDebt?: number;
+      notes?: string;
+    }>
+  ) => {
+    const now = new Date().toISOString();
+    let updatedCount = 0;
+    let addedCount = 0;
+
+    setCustomerDebts(prev => {
+      const currentList = [...prev];
+      items.forEach((item, idx) => {
+        if (!item.customer_name?.trim()) return;
+
+        const code = item.customer_code?.trim() || '';
+        const name = item.customer_name.trim().toLowerCase();
+
+        // Match existing customer by code or name
+        const existingIdx = currentList.findIndex(
+          c => (code && c.customer_code && c.customer_code.trim().toLowerCase() === code.toLowerCase()) ||
+               (c.customer_name.trim().toLowerCase() === name)
+        );
+
+        if (existingIdx !== -1) {
+          // Update address, phone1, phone2, notes
+          const existing = currentList[existingIdx];
+          currentList[existingIdx] = {
+            ...existing,
+            customer_code: code || existing.customer_code || `CUST-${(existingIdx + 1).toString().padStart(3, '0')}`,
+            phone: item.phone?.trim() || existing.phone,
+            phone2: item.phone2?.trim() || existing.phone2 || '',
+            address: item.address?.trim() || existing.address || '',
+            notes: item.notes?.trim() || existing.notes || '',
+            updated_at: now
+          };
+          updatedCount++;
+        } else {
+          // Add new customer
+          const initialDebt = Number(item.initialDebt) || 0;
+          const assignedCode = code || `CUST-${(currentList.length + idx + 1).toString().padStart(3, '0')}`;
+          const newCust: CustomerDebt = {
+            id: crypto.randomUUID ? crypto.randomUUID() : 'cust-' + Date.now() + '-' + idx,
+            customer_code: assignedCode,
+            customer_name: item.customer_name.trim(),
+            phone: item.phone?.trim() || '',
+            phone2: item.phone2?.trim() || '',
+            address: item.address?.trim() || '',
+            current_debt: initialDebt,
+            notes: item.notes?.trim() || '',
+            created_at: now,
+            updated_at: now,
+            transactions: initialDebt > 0 ? [
+              {
+                id: 'tx-' + Date.now() + '-' + idx,
+                date: now.split('T')[0],
+                type: 'debt_increase',
+                amount: initialDebt,
+                notes: 'رصيد افتتاحي من الاستيراد'
+              }
+            ] : []
+          };
+          currentList.unshift(newCust);
+          addedCount++;
+        }
+      });
+      return currentList;
+    });
+
+    showToast(`تم استيراد ${addedCount + updatedCount} عميل (إضافة جديد: ${addedCount}، تحديث بيانات: ${updatedCount})`);
+    return { imported: addedCount + updatedCount, updated: updatedCount, added: addedCount };
+  };
+
+  const addCustomerDebt = (name: string, phone: string, initialDebt: number, notes: string = '') => {
+    addCustomer({
+      customer_name: name,
+      phone,
+      initialDebt,
+      notes
+    });
   };
 
   const addDebtTransaction = (
@@ -456,7 +804,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             ...cust,
             current_debt: newDebt,
             updated_at: now,
-            transactions: [newTx, ...cust.transactions]
+            transactions: [newTx, ...(cust.transactions || [])]
           };
         }
         return cust;
@@ -471,8 +819,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const deleteCustomerDebt = (customerId: string) => {
-    setCustomerDebts(prev => prev.filter(c => c.id !== customerId));
-    showToast('تم حذف سجل حساب العميل');
+    deleteCustomer(customerId);
   };
 
   // Cash Session
@@ -561,6 +908,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         priceChangeDays,
         priceChangeItems,
         sales,
+        purchases,
         cashSessions,
         customerDebts,
         toasts,
@@ -569,6 +917,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         addProduct,
         updateProduct,
         deleteProduct,
+        bulkImportProducts,
         createShortageList,
         deleteShortageList,
         addShortageItem,
@@ -576,13 +925,23 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         deleteShortageItem,
         recordPriceChangeDay,
         completeSale,
+        deleteSale,
+        completePurchase,
+        deletePurchase,
+        addCustomer,
+        updateCustomer,
+        deleteCustomer,
+        bulkImportCustomers,
         addCustomerDebt,
         addDebtTransaction,
         deleteCustomerDebt,
         saveCashSession,
         exportDatabaseJSON,
         importDatabaseJSON,
-        resetToDefaultDatabase
+        resetToDefaultDatabase,
+        exportBackupJSON: exportDatabaseJSON,
+        importBackupJSON: importDatabaseJSON,
+        resetToInitialData: resetToDefaultDatabase
       }}
     >
       {children}

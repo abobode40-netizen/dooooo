@@ -250,43 +250,47 @@ export const BackupView: React.FC = () => {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 font-sans text-slate-800 animate-in fade-in duration-150">
       {/* Header */}
-      <div className="bg-slate-800/80 rounded-2xl p-5 border border-slate-700 shadow-xl flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
-          <h2 className="text-lg font-bold text-white flex items-center gap-2">
-            <Cloud className="w-5 h-5 text-amber-400" />
-            النسخ الاحتياطي السحابي (Google Drive) والمحلي
-          </h2>
-          <p className="text-xs text-slate-400">حفظ ومزامنة قاعدة بيانات المخزن ونقاط البيع سحابياً بأمان واستعادتها في أي وقت</p>
+      <div className="bg-white rounded-xl p-4 border border-slate-200 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-lg bg-blue-600 flex items-center justify-center text-white shadow-sm">
+            <Cloud className="w-5 h-5" />
+          </div>
+          <div>
+            <h2 className="text-lg font-black text-slate-900 flex items-center gap-2">
+              النسخ الاحتياطي السحابي (Google Drive) والمحلي
+            </h2>
+            <p className="text-xs text-slate-500">حفظ ومزامنة قاعدة بيانات المخزن ونقاط البيع سحابياً بأمان واستعادتها في أي وقت</p>
+          </div>
         </div>
 
         {/* User Google Account Chip */}
         {user ? (
-          <div className="flex items-center gap-3 bg-slate-900/90 border border-slate-700 px-3.5 py-1.5 rounded-xl">
+          <div className="flex items-center gap-3 bg-slate-50 border border-slate-200 px-3.5 py-1.5 rounded-lg">
             {user.photoURL ? (
               <img
                 src={user.photoURL}
                 alt={user.displayName || 'Google User'}
                 referrerPolicy="no-referrer"
-                className="w-7 h-7 rounded-full border border-amber-400"
+                className="w-7 h-7 rounded-full border border-blue-600"
               />
             ) : (
-              <div className="w-7 h-7 rounded-full bg-amber-500/20 text-amber-300 flex items-center justify-center font-bold text-xs">
+              <div className="w-7 h-7 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center font-bold text-xs">
                 <User className="w-4 h-4" />
               </div>
             )}
             <div className="text-right">
-              <div className="text-xs font-bold text-white truncate max-w-40">
+              <div className="text-xs font-bold text-slate-900 truncate max-w-40">
                 {user.displayName || 'مستخدم Google'}
               </div>
-              <div className="text-[10px] text-slate-400 truncate max-w-40 font-mono">
+              <div className="text-[10px] text-slate-500 truncate max-w-40 font-mono">
                 {user.email}
               </div>
             </div>
             <button
               onClick={handleGoogleLogout}
-              className="p-1.5 rounded-lg bg-slate-800 hover:bg-rose-500/20 hover:text-rose-400 text-slate-400 transition-colors"
+              className="p-1.5 rounded-md hover:bg-rose-50 hover:text-rose-600 text-slate-400 transition-colors cursor-pointer"
               title="تسجيل الخروج"
             >
               <LogOut className="w-4 h-4" />
@@ -296,7 +300,7 @@ export const BackupView: React.FC = () => {
           <button
             onClick={handleGoogleLogin}
             disabled={isLoggingIn}
-            className="px-4 py-2 bg-white hover:bg-slate-100 text-slate-800 font-bold text-xs rounded-xl shadow-md transition-all flex items-center gap-2 border border-slate-200"
+            className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs rounded-lg shadow-sm transition-colors flex items-center gap-2 cursor-pointer"
           >
             <svg className="w-4 h-4" viewBox="0 0 48 48">
               <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"></path>
@@ -310,10 +314,10 @@ export const BackupView: React.FC = () => {
       </div>
 
       {/* Google Drive Cloud Backups Card */}
-      <div className="bg-slate-800/80 rounded-2xl p-5 border border-slate-700 shadow-xl space-y-4">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-700">
-          <h3 className="text-sm font-bold text-white flex items-center gap-2">
-            <Cloud className="w-4 h-4 text-sky-400" />
+      <div className="bg-white rounded-xl p-5 border border-slate-200 shadow-sm space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-100">
+          <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
+            <Cloud className="w-4 h-4 text-blue-600" />
             النسخ الاحتياطي السحابي عبر Google Drive
           </h3>
 
@@ -323,7 +327,7 @@ export const BackupView: React.FC = () => {
                 <button
                   onClick={() => fetchDriveFiles()}
                   disabled={isLoadingDrive}
-                  className="p-2 rounded-xl bg-slate-700 hover:bg-slate-600 text-slate-200 text-xs transition-colors flex items-center gap-1.5"
+                  className="px-3 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold transition-colors flex items-center gap-1.5 cursor-pointer"
                   title="تحديث القائمة"
                 >
                   <RefreshCw className={`w-3.5 h-3.5 ${isLoadingDrive ? 'animate-spin' : ''}`} />
@@ -333,7 +337,7 @@ export const BackupView: React.FC = () => {
                 <button
                   onClick={handleUploadToDrive}
                   disabled={isUploadingToDrive}
-                  className="px-4 py-2 bg-sky-600 hover:bg-sky-500 text-white font-bold text-xs rounded-xl shadow-lg shadow-sky-600/20 transition-all flex items-center gap-2"
+                  className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-lg shadow-sm transition-colors flex items-center gap-2 cursor-pointer"
                 >
                   <CloudUpload className="w-4 h-4" />
                   {isUploadingToDrive ? 'جاري الحفظ على Drive...' : 'حفظ نسخة جديدة على Drive'}
@@ -346,8 +350,8 @@ export const BackupView: React.FC = () => {
         {user ? (
           <div className="space-y-3">
             {isLoadingDrive ? (
-              <div className="py-8 text-center text-slate-400 text-xs flex items-center justify-center gap-2">
-                <RefreshCw className="w-4 h-4 animate-spin text-sky-400" />
+              <div className="py-8 text-center text-slate-500 text-xs flex items-center justify-center gap-2">
+                <RefreshCw className="w-4 h-4 animate-spin text-blue-600" />
                 جاري فحص وتنزيل قائمة النسخ الاحتياطية من حساب Google Drive الخاص بك...
               </div>
             ) : driveBackups.length > 0 ? (
@@ -355,15 +359,15 @@ export const BackupView: React.FC = () => {
                 {driveBackups.map(file => (
                   <div
                     key={file.id}
-                    className="bg-slate-900/90 rounded-xl p-3.5 border border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:border-slate-700 transition-all"
+                    className="bg-slate-50 rounded-xl p-3.5 border border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:border-slate-300 transition-all"
                   >
                     <div className="flex items-center gap-3">
-                      <div className="w-9 h-9 rounded-lg bg-sky-500/10 border border-sky-500/30 flex items-center justify-center text-sky-400">
+                      <div className="w-9 h-9 rounded-lg bg-blue-50 border border-blue-200 flex items-center justify-center text-blue-700">
                         <Database className="w-4 h-4" />
                       </div>
                       <div>
-                        <div className="text-xs font-bold text-white font-mono">{file.name}</div>
-                        <div className="text-[10px] text-slate-400 mt-0.5 flex items-center gap-3">
+                        <div className="text-xs font-bold text-slate-900 font-mono">{file.name}</div>
+                        <div className="text-[10px] text-slate-500 mt-0.5 flex items-center gap-3">
                           <span>
                             تاريخ النسخ: {new Date(file.createdTime).toLocaleString('ar-EG')}
                           </span>
@@ -379,7 +383,7 @@ export const BackupView: React.FC = () => {
                     <div className="flex items-center gap-2">
                       <button
                         onClick={() => handleRestoreFromDrive(file)}
-                        className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold rounded-lg transition-all flex items-center gap-1.5 shadow-sm"
+                        className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-lg transition-colors flex items-center gap-1.5 shadow-sm cursor-pointer"
                         title="استرجاع البيانات الحالية من هذه النسخة السحابية"
                       >
                         <CloudDownload className="w-3.5 h-3.5" />
@@ -389,7 +393,7 @@ export const BackupView: React.FC = () => {
                       <button
                         onClick={() => handleDeleteFromDrive(file)}
                         disabled={deletingFileId === file.id}
-                        className="p-1.5 rounded-lg bg-slate-800 hover:bg-rose-500/20 hover:text-rose-400 text-slate-400 transition-colors"
+                        className="p-1.5 rounded-lg hover:bg-rose-50 hover:text-rose-600 text-slate-400 transition-colors cursor-pointer"
                         title="حذف النسخة من Drive"
                       >
                         <Trash2 className="w-3.5 h-3.5" />
@@ -399,13 +403,13 @@ export const BackupView: React.FC = () => {
                 ))}
               </div>
             ) : (
-              <div className="py-8 text-center bg-slate-900/60 rounded-xl border border-dashed border-slate-800 space-y-2">
-                <FolderOpen className="w-8 h-8 text-slate-600 mx-auto" />
-                <p className="text-xs text-slate-400">لا توجد نسخ احتياطية محفوظة حتى الآن في مجلد Google Drive</p>
+              <div className="py-8 text-center bg-slate-50 rounded-xl border border-dashed border-slate-300 space-y-2">
+                <FolderOpen className="w-8 h-8 text-slate-400 mx-auto" />
+                <p className="text-xs text-slate-500 font-bold">لا توجد نسخ احتياطية محفوظة حتى الآن في مجلد Google Drive</p>
                 <button
                   onClick={handleUploadToDrive}
                   disabled={isUploadingToDrive}
-                  className="mt-2 px-4 py-2 bg-sky-600 hover:bg-sky-500 text-white font-bold text-xs rounded-xl inline-flex items-center gap-2"
+                  className="mt-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-lg inline-flex items-center gap-2 cursor-pointer shadow-sm"
                 >
                   <CloudUpload className="w-4 h-4" />
                   حفظ أول نسخة سحابية الآن
@@ -414,16 +418,16 @@ export const BackupView: React.FC = () => {
             )}
           </div>
         ) : (
-          <div className="py-8 text-center bg-slate-900/60 rounded-xl border border-slate-800 p-6 space-y-3">
-            <Cloud className="w-10 h-10 text-sky-400/60 mx-auto" />
-            <h4 className="text-sm font-bold text-white">قم بتسجيل الدخول بحساب Google لحفظ واسترجاع بياناتك سحابياً</h4>
-            <p className="text-xs text-slate-400 max-w-md mx-auto">
+          <div className="py-8 text-center bg-slate-50 rounded-xl border border-slate-200 p-6 space-y-3">
+            <Cloud className="w-10 h-10 text-blue-600 mx-auto" />
+            <h4 className="text-sm font-bold text-slate-900">قم بتسجيل الدخول بحساب Google لحفظ واسترجاع بياناتك سحابياً</h4>
+            <p className="text-xs text-slate-500 max-w-md mx-auto">
               عند ربط حساب Google Drive، ستتمكن من عمل نسخ احتياطي آمن لقاعدة بيانات المخازن والمبيعات والديون، والوصول إليها من أي جهاز آخر.
             </p>
             <button
               onClick={handleGoogleLogin}
               disabled={isLoggingIn}
-              className="mt-2 px-5 py-2.5 bg-white hover:bg-slate-100 text-slate-800 font-bold text-xs rounded-xl shadow-lg transition-all inline-flex items-center gap-2"
+              className="mt-2 px-5 py-2.5 bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs rounded-lg shadow-sm transition-colors inline-flex items-center gap-2 cursor-pointer"
             >
               <svg className="w-4 h-4" viewBox="0 0 48 48">
                 <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"></path>
@@ -437,30 +441,30 @@ export const BackupView: React.FC = () => {
         )}
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         {/* Local Backup & Restore Card */}
-        <div className="bg-slate-800/80 rounded-2xl p-5 border border-slate-700 shadow-xl space-y-4">
-          <h3 className="text-sm font-bold text-white flex items-center gap-2 pb-3 border-b border-slate-700">
-            <ShieldCheck className="w-4 h-4 text-emerald-400" />
+        <div className="bg-white rounded-xl p-5 border border-slate-200 shadow-sm space-y-4">
+          <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2 pb-3 border-b border-slate-100">
+            <ShieldCheck className="w-4 h-4 text-emerald-600" />
             النسخ الاحتياطي المحلي واستعادة الملفات
           </h3>
 
-          <div className="bg-slate-900/90 rounded-xl p-4 border border-slate-800 space-y-2 text-xs">
-            <div className="text-slate-300 font-bold mb-2">إحصائيات قاعدة البيانات المخزنة:</div>
-            <div className="grid grid-cols-2 gap-2 text-slate-400">
-              <div>الأصناف في الدليل: <strong className="text-amber-400">{products.length}</strong> صنف</div>
-              <div>فواتير المبيعات: <strong className="text-emerald-400">{sales.length}</strong> فاتورة</div>
-              <div>قوائم النواقص: <strong className="text-sky-400">{shortageLists.length}</strong> قائمة</div>
-              <div>أيام تعديل الأسعار: <strong className="text-rose-400">{priceChangeDays.length}</strong> يوم</div>
-              <div>حسابات العملاء: <strong className="text-purple-400">{customerDebts.length}</strong> حساب</div>
-              <div>جلسات الخزينة: <strong className="text-amber-300">{cashSessions.length}</strong> جلسة</div>
+          <div className="bg-slate-50 rounded-xl p-3.5 border border-slate-200 space-y-2 text-xs">
+            <div className="text-slate-800 font-bold mb-2">إحصائيات قاعدة البيانات المخزنة:</div>
+            <div className="grid grid-cols-2 gap-2 text-slate-600">
+              <div>الأصناف في الدليل: <strong className="text-slate-900">{products.length}</strong> صنف</div>
+              <div>فواتير المبيعات: <strong className="text-slate-900">{sales.length}</strong> فاتورة</div>
+              <div>قوائم النواقص: <strong className="text-slate-900">{shortageLists.length}</strong> قائمة</div>
+              <div>أيام تعديل الأسعار: <strong className="text-slate-900">{priceChangeDays.length}</strong> يوم</div>
+              <div>حسابات العملاء: <strong className="text-slate-900">{customerDebts.length}</strong> حساب</div>
+              <div>جلسات الخزينة: <strong className="text-slate-900">{cashSessions.length}</strong> جلسة</div>
             </div>
           </div>
 
-          <div className="space-y-3">
+          <div className="space-y-2.5">
             <button
               onClick={handleDownloadBackup}
-              className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs rounded-xl shadow-lg shadow-emerald-600/20 transition-all flex items-center justify-center gap-2"
+              className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-lg shadow-sm transition-colors flex items-center justify-center gap-2 cursor-pointer"
             >
               <Download className="w-4 h-4" />
               تنزيل نسخة احتياطية محلية (ملف JSON)
@@ -476,16 +480,16 @@ export const BackupView: React.FC = () => {
               />
               <button
                 onClick={() => fileInputRef.current?.click()}
-                className="w-full py-2.5 bg-slate-700 hover:bg-slate-600 text-slate-200 font-bold text-xs rounded-xl border border-slate-600 transition-all flex items-center justify-center gap-2"
+                className="w-full py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold text-xs rounded-lg border border-slate-300 transition-colors flex items-center justify-center gap-2 cursor-pointer"
               >
-                <Upload className="w-4 h-4 text-amber-400" />
+                <Upload className="w-4 h-4 text-blue-600" />
                 استيراد واستعادة نسخة احتياطية من جهازك
               </button>
             </div>
 
             <button
               onClick={handleReset}
-              className="w-full py-2.5 bg-rose-950/40 hover:bg-rose-900/60 text-rose-300 font-semibold text-xs rounded-xl border border-rose-800/40 transition-all flex items-center justify-center gap-2"
+              className="w-full py-2.5 bg-rose-50 hover:bg-rose-100 text-rose-700 font-bold text-xs rounded-lg border border-rose-200 transition-colors flex items-center justify-center gap-2 cursor-pointer"
             >
               <RotateCcw className="w-4 h-4" />
               استرجاع بيانات المصنع الأولية
@@ -494,30 +498,30 @@ export const BackupView: React.FC = () => {
         </div>
 
         {/* GitHub Guide & Deployment */}
-        <div className="bg-slate-800/80 rounded-2xl p-5 border border-slate-700 shadow-xl space-y-4">
-          <div className="flex items-center justify-between pb-3 border-b border-slate-700">
-            <h3 className="text-sm font-bold text-white flex items-center gap-2">
-              <Github className="w-4 h-4 text-amber-400" />
+        <div className="bg-white rounded-xl p-5 border border-slate-200 shadow-sm space-y-4">
+          <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+            <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
+              <Github className="w-4 h-4 text-slate-900" />
               أوامر نشر المستودع العام (Public GitHub)
             </h3>
-            <span className="px-2 py-0.5 rounded bg-amber-500/20 text-amber-300 text-[10px] font-bold border border-amber-500/30">
+            <span className="px-2 py-0.5 rounded bg-blue-50 text-blue-700 text-[10px] font-bold border border-blue-200">
               Open Source
             </span>
           </div>
 
           <div className="space-y-3">
             {gitSteps.map((step, idx) => (
-              <div key={idx} className="bg-slate-900/90 rounded-xl p-3.5 border border-slate-800 space-y-2">
-                <h4 className="text-xs font-bold text-slate-200">{step.title}</h4>
-                <p className="text-[11px] text-slate-400">{step.desc}</p>
+              <div key={idx} className="bg-slate-50 rounded-xl p-3 border border-slate-200 space-y-1.5">
+                <h4 className="text-xs font-bold text-slate-800">{step.title}</h4>
+                <p className="text-[11px] text-slate-500">{step.desc}</p>
                 {step.command && (
                   <div className="relative">
-                    <pre className="p-3 bg-slate-950 rounded-lg text-[11px] font-mono text-amber-300 overflow-x-auto border border-slate-800/80 text-left dir-ltr">
+                    <pre className="p-2.5 bg-slate-900 rounded-lg text-[11px] font-mono text-emerald-400 overflow-x-auto text-left dir-ltr">
                       {step.command}
                     </pre>
                     <button
                       onClick={() => copyToClipboard(step.command!, idx)}
-                      className="absolute top-2 right-2 p-1.5 rounded-md bg-slate-800 hover:bg-slate-700 text-slate-300 transition-colors"
+                      className="absolute top-2 right-2 p-1.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 transition-colors cursor-pointer"
                       title="نسخ الأوامر"
                     >
                       {copiedIndex === idx ? (
@@ -536,4 +540,3 @@ export const BackupView: React.FC = () => {
     </div>
   );
 };
-

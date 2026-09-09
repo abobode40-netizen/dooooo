@@ -3,6 +3,7 @@
   "appId": "1:622103439147:web:e9300b1f5eb2d07683876e",
   "apiKey": "AIzaSyBICOYDIBo3Q_0Z_hBEp9reReOw_iZVEmQ",
   "authDomain": "ascendant-bonito-gf6jr.firebaseapp.com",
+  "firestoreDatabaseId": "ai-studio-b63cd526-05c1-4244-b935-6678d259d7ba",
   "storageBucket": "ascendant-bonito-gf6jr.firebasestorage.app",
   "messagingSenderId": "622103439147",
   "measurementId": "",

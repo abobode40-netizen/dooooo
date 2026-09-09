@@ -1,58 +1,47 @@
-import React, { useState, useMemo, useEffect, useRef } from 'react';
+import React, { useState, useMemo, useRef } from 'react';
 import { 
-  Receipt, 
+  Truck, 
   Search, 
   Plus, 
   Trash2, 
   Printer, 
   Save, 
-  UserCheck, 
   DollarSign, 
   Barcode, 
-  AlertCircle,
-  FileSpreadsheet,
   CheckCircle2,
-  TrendingUp,
-  RotateCcw,
+  TrendingDown,
   Layers,
   ArrowRight,
-  Calculator,
-  Percent,
-  ListOrdered,
-  LayoutGrid
+  PackagePlus,
+  Building2
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
-import { Product, Sale, SaleItem } from '../types';
-import { InvoicePrintModal } from './InvoicePrintModal';
+import { Product, Purchase, PurchaseItem } from '../types';
 
-interface InvoiceRowItem {
+interface PurchaseRowItem {
   product: Product;
   quantity: number;
   unit: string;
-  unitPrice: number;
-  customPrice?: number;
-  priceType: 'wholesale' | 'retail';
+  unitCost: number;
 }
 
-export const POSView: React.FC = () => {
+export const PurchaseInvoiceView: React.FC = () => {
   const { 
     products, 
-    completeSale, 
-    customerDebts, 
+    completePurchase, 
     showToast 
   } = useApp();
 
-  // Invoice Draft State
-  const [rows, setRows] = useState<InvoiceRowItem[]>([]);
-  const [orderNumber, setOrderNumber] = useState<string>(() => 'INV-' + Math.floor(10000 + Math.random() * 90000));
+  // Draft State
+  const [rows, setRows] = useState<PurchaseRowItem[]>([]);
+  const [orderNumber, setOrderNumber] = useState<string>(() => 'PUR-' + Math.floor(10000 + Math.random() * 90000));
   const [orderDate, setOrderDate] = useState<string>(() => new Date().toISOString().split('T')[0]);
   
-  // Customer & Payment Info
-  const [customerCode, setCustomerCode] = useState<string>('94');
-  const [customerName, setCustomerName] = useState<string>('عميل نقدي عام');
-  const [customerPhone, setCustomerPhone] = useState<string>('');
+  // Supplier & Payment Info
+  const [supplierCode, setSupplierCode] = useState<string>('SUP-01');
+  const [supplierName, setSupplierName] = useState<string>('مورد رئيسي');
+  const [supplierPhone, setSupplierPhone] = useState<string>('');
   const [paymentType, setPaymentType] = useState<'cash' | 'debt' | 'visa'>('cash');
-  const [pricingMode, setPricingMode] = useState<'wholesale' | 'retail'>('wholesale');
   const [discount, setDiscount] = useState<number>(0);
   const [notes, setNotes] = useState<string>('');
 
@@ -60,27 +49,11 @@ export const POSView: React.FC = () => {
   const [activeRowIndex, setActiveRowIndex] = useState<number>(0);
   const [quickSearchQuery, setQuickSearchQuery] = useState<string>('');
   const [quickQty, setQuickQty] = useState<number>(1);
+  const [quickCost, setQuickCost] = useState<number | ''>('');
   const [showProductSearchModal, setShowProductSearchModal] = useState<boolean>(false);
-  const [showProfitSummary, setShowProfitSummary] = useState<boolean>(false);
-
-  // Print modal state
-  const [isPrintModalOpen, setIsPrintModalOpen] = useState<boolean>(false);
-  const [completedSaleForPrint, setCompletedSaleForPrint] = useState<Sale | null>(null);
 
   // Quick input ref
   const quickInputRef = useRef<HTMLInputElement>(null);
-
-  // Customer debt matching
-  const matchedCustomer = useMemo(() => {
-    if (!customerName.trim() || customerName === 'عميل نقدي عام') return null;
-    const nameClean = customerName.toLowerCase().trim();
-    return customerDebts.find(c => 
-      c.customer_name.toLowerCase().trim().includes(nameClean) ||
-      (customerCode && c.customer_code === customerCode)
-    );
-  }, [customerName, customerCode, customerDebts]);
-
-  const previousBalance = matchedCustomer ? Number(matchedCustomer.current_debt) : 0;
 
   // Active product details
   const activeRow = rows[activeRowIndex] || rows[rows.length - 1] || null;
@@ -91,25 +64,10 @@ export const POSView: React.FC = () => {
   }, [rows]);
 
   const totalAmount = useMemo(() => {
-    return rows.reduce((sum, r) => {
-      const price = r.customPrice !== undefined ? r.customPrice : r.unitPrice;
-      return sum + price * (Number(r.quantity) || 0);
-    }, 0);
+    return rows.reduce((sum, r) => sum + (Number(r.unitCost) || 0) * (Number(r.quantity) || 0), 0);
   }, [rows]);
 
   const finalAmount = Math.max(0, totalAmount - (Number(discount) || 0));
-  const newTotalBalance = previousBalance + (paymentType === 'debt' ? finalAmount : 0);
-
-  // Profit calculations
-  const totalCost = useMemo(() => {
-    return rows.reduce((sum, r) => {
-      const cost = Number(r.product.cost_price || (r.product.price_wholesale * 0.88));
-      return sum + cost * (Number(r.quantity) || 0);
-    }, 0);
-  }, [rows]);
-
-  const totalEstimatedProfit = finalAmount - totalCost;
-  const profitMargin = finalAmount > 0 ? ((totalEstimatedProfit / finalAmount) * 100).toFixed(1) : '0';
 
   // Day Name Arabic
   const arabicDayName = useMemo(() => {
@@ -143,14 +101,13 @@ export const POSView: React.FC = () => {
     });
   };
 
-  // Handle row price update
-  const handleUpdatePrice = (index: number, newPrice: number) => {
+  // Handle row cost update
+  const handleUpdateCost = (index: number, newCost: number) => {
     setRows(prev => {
       const updated = [...prev];
       updated[index] = {
         ...updated[index],
-        unitPrice: Math.max(0, newPrice),
-        customPrice: Math.max(0, newPrice)
+        unitCost: Math.max(0, newCost)
       };
       return updated;
     });
@@ -166,40 +123,44 @@ export const POSView: React.FC = () => {
 
   // Clear / New Invoice
   const handleNewInvoice = () => {
-    if (rows.length > 0 && !window.confirm('هل تريد إلغاء الفاتورة الحالية وبدء فاتورة بيع جديدة فارغة؟')) {
+    if (rows.length > 0 && !window.confirm('هل تريد إلغاء الفاتورة الحالية وبدء إذن توريد جديد فارغ؟')) {
       return;
     }
     setRows([]);
     setDiscount(0);
     setNotes('');
-    setOrderNumber('INV-' + Math.floor(10000 + Math.random() * 90000));
+    setOrderNumber('PUR-' + Math.floor(10000 + Math.random() * 90000));
     setOrderDate(new Date().toISOString().split('T')[0]);
     setQuickSearchQuery('');
     setQuickQty(1);
-    showToast('تم بدء فاتورة بيع جديدة فارغة', 'info');
+    setQuickCost('');
+    showToast('تم بدء إذن توريد ومشتريات جديد فارغ', 'info');
     quickInputRef.current?.focus();
   };
 
   // Add Product to rows
-  const handleAddProduct = (product: Product, qty: number = 1) => {
-    const price = pricingMode === 'wholesale' ? product.price_wholesale : product.price;
+  const handleAddProduct = (product: Product, qty: number = 1, cost?: number) => {
+    const defaultCost = cost !== undefined && cost > 0 
+      ? cost 
+      : (product.cost && product.cost > 0 ? product.cost : (product.price_wholesale * 0.88));
+
     setRows(prev => {
-      const existingIdx = prev.findIndex(r => r.product.id === product.id && r.priceType === pricingMode);
+      const existingIdx = prev.findIndex(r => r.product.id === product.id);
       if (existingIdx !== -1) {
         const updated = [...prev];
         updated[existingIdx] = {
           ...updated[existingIdx],
-          quantity: updated[existingIdx].quantity + qty
+          quantity: updated[existingIdx].quantity + qty,
+          unitCost: cost && cost > 0 ? cost : updated[existingIdx].unitCost
         };
         setActiveRowIndex(existingIdx);
         return updated;
       }
-      const newRow: InvoiceRowItem = {
+      const newRow: PurchaseRowItem = {
         product,
         quantity: qty,
         unit: product.unit || 'قطعة',
-        unitPrice: price,
-        priceType: pricingMode
+        unitCost: Number(defaultCost.toFixed(2))
       };
       setActiveRowIndex(prev.length);
       return [...prev, newRow];
@@ -207,6 +168,7 @@ export const POSView: React.FC = () => {
 
     setQuickSearchQuery('');
     setQuickQty(1);
+    setQuickCost('');
     quickInputRef.current?.focus();
   };
 
@@ -220,66 +182,52 @@ export const POSView: React.FC = () => {
                   products.find(p => p.code.toLowerCase().includes(q) || p.name.toLowerCase().includes(q));
 
     if (match) {
-      handleAddProduct(match, Number(quickQty) || 1);
-      showToast(`تم إدراج: ${match.name}`);
+      handleAddProduct(match, Number(quickQty) || 1, Number(quickCost) || undefined);
+      showToast(`تم إدراج: ${match.name} بسعر توريد ${quickCost || match.cost || 'المسجل'}`);
     } else {
       showToast(`لم يتم العثور على صنف بالرمز أو الاسم "${quickSearchQuery}"`, 'error');
     }
   };
 
-  // Save and Complete Sale
-  const handleSaveInvoice = (andPrint: boolean = false) => {
+  // Save and Complete Purchase
+  const handleSavePurchase = () => {
     if (rows.length === 0) {
       showToast('الفاتورة فارغة! يرجى إدراج صنف واحد على الأقل قبل الحفظ', 'error');
       return;
     }
 
-    if (paymentType === 'debt' && (!customerName.trim() || customerName === 'عميل نقدي عام')) {
-      showToast('يرجى كتابة اسم العميل عند اختيار السداد الآجل (على الحساب)', 'error');
-      return;
-    }
-
-    const saleItems: SaleItem[] = rows.map((r, idx) => {
-      const unitPrice = r.customPrice !== undefined ? r.customPrice : r.unitPrice;
+    const purchaseItems: PurchaseItem[] = rows.map((r, idx) => {
       return {
-        id: `sitem-${idx}`,
-        sale_id: '',
+        id: `pitem-${idx}`,
+        purchase_id: '',
         product_id: r.product.id,
         code: r.product.code,
         product_name: r.product.name,
         unit: r.unit,
         quantity: r.quantity,
-        unit_price: unitPrice,
-        total_price: unitPrice * r.quantity,
-        price_type: r.priceType,
-        cost: r.product.cost_price || (r.product.price_wholesale * 0.88)
+        unit_cost: r.unitCost,
+        total_cost: r.unitCost * r.quantity
       };
     });
 
-    const savedSale = completeSale({
+    completePurchase({
       total_amount: totalAmount,
       discount: Number(discount) || 0,
       final_amount: finalAmount,
       payment_type: paymentType,
-      customer_name: customerName.trim() || 'عميل نقدي عام',
-      customer_code: customerCode.trim() || '94',
-      customer_phone: customerPhone.trim() || undefined,
-      cashier_name: 'الكاشير الرئيسي',
-      notes: notes.trim() || undefined,
+      supplier_name: supplierName.trim() || 'مورد عام',
+      supplier_code: supplierCode.trim() || 'SUP-01',
+      supplier_phone: supplierPhone.trim() || undefined,
       warehouse: 'المخزن الرئيسي',
-      items: saleItems
+      notes: notes.trim() || undefined,
+      items: purchaseItems
     });
 
-    if (andPrint) {
-      setCompletedSaleForPrint(savedSale);
-      setIsPrintModalOpen(true);
-    }
-
-    // Reset for next invoice
+    // Reset for next purchase invoice
     setRows([]);
     setDiscount(0);
     setNotes('');
-    setOrderNumber('INV-' + Math.floor(10000 + Math.random() * 90000));
+    setOrderNumber('PUR-' + Math.floor(10000 + Math.random() * 90000));
     setOrderDate(new Date().toISOString().split('T')[0]);
     quickInputRef.current?.focus();
   };
@@ -289,18 +237,18 @@ export const POSView: React.FC = () => {
       {/* Top Header Card */}
       <div className="bg-white rounded-xl p-4 border border-slate-200 shadow-sm flex flex-wrap items-center justify-between gap-4">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-lg bg-blue-600 flex items-center justify-center text-white shadow-sm">
-            <Receipt className="w-5 h-5" />
+          <div className="w-10 h-10 rounded-lg bg-slate-900 flex items-center justify-center text-white shadow-sm">
+            <Truck className="w-5 h-5 text-blue-400" />
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <h1 className="text-lg font-black text-slate-900">فاتورة مبيعات وأذن صرف مخزن</h1>
-              <span className="px-2 py-0.5 rounded bg-blue-50 text-blue-700 border border-blue-200 font-mono text-xs font-bold">
+              <h1 className="text-lg font-black text-slate-900">فاتورة مشتريات وأذن توريد مخزن</h1>
+              <span className="px-2 py-0.5 rounded bg-slate-100 text-slate-800 border border-slate-200 font-mono text-xs font-bold">
                 {orderNumber}
               </span>
             </div>
             <p className="text-xs text-slate-500">
-              أذن بيع رسمي معتمد - ربط فوري مع المخزون وحسابات الديون
+              إذن توريد وإضافة بضاعة للمخزن وتحديث تكاليف الشراء بنقرة واحدة
             </p>
           </div>
         </div>
@@ -310,10 +258,10 @@ export const POSView: React.FC = () => {
           <button
             onClick={handleNewInvoice}
             className="px-3.5 py-2 bg-slate-800 hover:bg-slate-900 text-white font-bold text-xs rounded-lg flex items-center gap-1.5 transition-colors cursor-pointer shadow-sm"
-            title="فاتورة جديدة (F2)"
+            title="إذن جديد (F2)"
           >
-            <Plus className="w-4 h-4 text-emerald-400" />
-            فاتورة جديدة (F2)
+            <Plus className="w-4 h-4 text-blue-400" />
+            إذن جديد (F2)
           </button>
           
           <button
@@ -326,23 +274,23 @@ export const POSView: React.FC = () => {
           </button>
 
           <button
-            onClick={() => handleSaveInvoice(true)}
+            onClick={handleSavePurchase}
             disabled={rows.length === 0}
             className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white font-bold text-xs rounded-lg flex items-center gap-1.5 transition-colors cursor-pointer shadow-sm"
           >
-            <Printer className="w-4 h-4" />
-            حفظ وطباعة
+            <PackagePlus className="w-4 h-4" />
+            إضافة للمخزن وحفظ
           </button>
         </div>
       </div>
 
-      {/* Main Invoice Sheet (Clean White Design) */}
+      {/* Main Invoice Sheet (Identical Structure to Sales) */}
       <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
         {/* Invoice Metadata Header Form */}
         <div className="p-4 bg-slate-50 border-b border-slate-200 grid grid-cols-1 md:grid-cols-4 lg:grid-cols-6 gap-3 text-xs">
           {/* Order Number */}
           <div>
-            <label className="block text-[11px] font-bold text-slate-600 mb-1">رقم الأذن / الفاتورة</label>
+            <label className="block text-[11px] font-bold text-slate-600 mb-1">رقم أذن التوريد / الشراء</label>
             <input
               type="text"
               value={orderNumber}
@@ -364,55 +312,48 @@ export const POSView: React.FC = () => {
             />
           </div>
 
-          {/* Customer Code */}
+          {/* Supplier Code */}
           <div>
-            <label className="block text-[11px] font-bold text-slate-600 mb-1">كود العميل</label>
+            <label className="block text-[11px] font-bold text-slate-600 mb-1">كود المورد / الشركة</label>
             <input
               type="text"
-              value={customerCode}
-              onChange={e => setCustomerCode(e.target.value)}
-              placeholder="مثال: 94"
+              value={supplierCode}
+              onChange={e => setSupplierCode(e.target.value)}
+              placeholder="مثال: SUP-01"
               className="w-full bg-white border border-slate-300 rounded-lg px-2.5 py-1.5 font-mono font-bold text-slate-900 focus:outline-none focus:border-blue-600"
             />
           </div>
 
-          {/* Customer Name */}
+          {/* Supplier Name */}
           <div className="lg:col-span-2">
-            <div className="flex items-center justify-between mb-1">
-              <label className="text-[11px] font-bold text-slate-600">اسم العميل والبيان</label>
-              {previousBalance > 0 && (
-                <span className="text-[10px] font-bold text-rose-600 bg-rose-50 px-1.5 py-0.5 rounded border border-rose-200">
-                  مديونية سابقة: {previousBalance.toLocaleString()} ج.م
-                </span>
-              )}
-            </div>
+            <label className="block text-[11px] font-bold text-slate-600 mb-1">اسم المورد أو الشركة الموردة</label>
             <input
               type="text"
-              value={customerName}
-              onChange={e => setCustomerName(e.target.value)}
-              placeholder="اكتب اسم العميل..."
+              value={supplierName}
+              onChange={e => setSupplierName(e.target.value)}
+              placeholder="اكتب اسم المورد أو الشركة..."
               className="w-full bg-white border border-slate-300 rounded-lg px-2.5 py-1.5 font-bold text-slate-900 focus:outline-none focus:border-blue-600"
             />
           </div>
 
-          {/* Customer Phone */}
+          {/* Supplier Phone */}
           <div>
-            <label className="block text-[11px] font-bold text-slate-600 mb-1">رقم هاتف العميل</label>
+            <label className="block text-[11px] font-bold text-slate-600 mb-1">رقم هاتف المورد</label>
             <input
               type="text"
-              value={customerPhone}
-              onChange={e => setCustomerPhone(e.target.value)}
+              value={supplierPhone}
+              onChange={e => setSupplierPhone(e.target.value)}
               placeholder="010..."
               className="w-full bg-white border border-slate-300 rounded-lg px-2.5 py-1.5 text-slate-900 focus:outline-none focus:border-blue-600"
             />
           </div>
         </div>
 
-        {/* Sub-bar: Payment & Pricing options */}
+        {/* Sub-bar: Payment & Target Warehouse */}
         <div className="p-3 bg-white border-b border-slate-200 flex flex-wrap items-center justify-between gap-3 text-xs">
           {/* Payment Type Buttons */}
           <div className="flex items-center gap-2">
-            <span className="font-bold text-slate-700">طريقة السداد:</span>
+            <span className="font-bold text-slate-700">طريقة السداد للمورد:</span>
             <div className="inline-flex rounded-lg border border-slate-300 p-0.5 bg-slate-100">
               <button
                 type="button"
@@ -421,7 +362,7 @@ export const POSView: React.FC = () => {
                   paymentType === 'cash' ? 'bg-blue-600 text-white shadow-sm' : 'text-slate-600 hover:text-slate-900'
                 }`}
               >
-                نقدي (كاش)
+                نقدي (من الخزينة)
               </button>
               <button
                 type="button"
@@ -430,7 +371,7 @@ export const POSView: React.FC = () => {
                   paymentType === 'debt' ? 'bg-amber-600 text-white shadow-sm' : 'text-slate-600 hover:text-slate-900'
                 }`}
               >
-                آجل (على الحساب)
+                آجل (مستحق للمورد)
               </button>
               <button
                 type="button"
@@ -439,52 +380,27 @@ export const POSView: React.FC = () => {
                   paymentType === 'visa' ? 'bg-indigo-600 text-white shadow-sm' : 'text-slate-600 hover:text-slate-900'
                 }`}
               >
-                شبكة / بنكي
+                تحويل بنكي / شيك
               </button>
             </div>
           </div>
 
-          {/* Pricing Mode */}
           <div className="flex items-center gap-2">
-            <span className="font-bold text-slate-700">نوع السعر:</span>
-            <div className="inline-flex rounded-lg border border-slate-300 p-0.5 bg-slate-100">
-              <button
-                type="button"
-                onClick={() => setPricingMode('wholesale')}
-                className={`px-3 py-1 text-xs font-bold rounded-md transition-colors cursor-pointer ${
-                  pricingMode === 'wholesale' ? 'bg-slate-800 text-white shadow-sm' : 'text-slate-600 hover:text-slate-900'
-                }`}
-              >
-                سعر الجملة
-              </button>
-              <button
-                type="button"
-                onClick={() => setPricingMode('retail')}
-                className={`px-3 py-1 text-xs font-bold rounded-md transition-colors cursor-pointer ${
-                  pricingMode === 'retail' ? 'bg-slate-800 text-white shadow-sm' : 'text-slate-600 hover:text-slate-900'
-                }`}
-              >
-                سعر التجزئة (القطاعي)
-              </button>
-            </div>
+            <span className="font-bold text-slate-700">المخزن المستلم:</span>
+            <span className="bg-slate-100 px-3 py-1 rounded-md font-bold text-slate-800 border border-slate-200">
+              المخزن الرئيسي (افتراضي)
+            </span>
           </div>
 
-          {/* Quick Balance / Status */}
           <div className="text-xs font-bold text-slate-700">
-            {paymentType === 'debt' ? (
-              <span className="text-amber-700 bg-amber-50 px-2 py-1 rounded border border-amber-200">
-                الحساب بعد هذه الفاتورة: {newTotalBalance.toLocaleString()} ج.م
-              </span>
-            ) : (
-              <span className="text-emerald-700 bg-emerald-50 px-2 py-1 rounded border border-emerald-200">
-                فاتورة نقدية مدفوعة بالكامل
-              </span>
-            )}
+            <span className="text-blue-700 bg-blue-50 px-2 py-1 rounded border border-blue-200">
+              الأصناف تضاف فوراً لرصيد المخزن الفعلي
+            </span>
           </div>
         </div>
 
         {/* Quick Product Insertion Bar */}
-        <div className="p-3 bg-blue-50/50 border-b border-slate-200">
+        <div className="p-3 bg-slate-50 border-b border-slate-200">
           <form onSubmit={handleQuickInsertSubmit} className="flex flex-wrap items-center gap-2 relative">
             <div className="relative flex-1 min-w-[240px]">
               <Barcode className="w-4 h-4 absolute right-3 top-1/2 -translate-y-1/2 text-slate-400" />
@@ -503,7 +419,7 @@ export const POSView: React.FC = () => {
                   {filteredProducts.map(p => (
                     <div
                       key={p.id}
-                      onClick={() => handleAddProduct(p, quickQty)}
+                      onClick={() => handleAddProduct(p, quickQty, Number(quickCost) || undefined)}
                       className="p-2.5 hover:bg-blue-50 cursor-pointer flex items-center justify-between text-xs"
                     >
                       <div className="flex items-center gap-2">
@@ -514,9 +430,9 @@ export const POSView: React.FC = () => {
                         <span className="text-slate-500">({p.unit})</span>
                       </div>
                       <div className="flex items-center gap-3">
-                        <span className="text-slate-500 text-[11px]">المخزن: {p.stock}</span>
-                        <span className="font-bold text-emerald-700">
-                          {pricingMode === 'wholesale' ? p.price_wholesale : p.price} ج.م
+                        <span className="text-slate-500 text-[11px]">الرصيد الحالي: {p.stock}</span>
+                        <span className="font-bold text-slate-800">
+                          التكلفة: {p.cost_price || (p.price_wholesale * 0.88).toFixed(1)} ج.م
                         </span>
                       </div>
                     </div>
@@ -537,12 +453,25 @@ export const POSView: React.FC = () => {
               />
             </div>
 
+            <div className="flex items-center gap-1.5">
+              <label className="text-xs font-bold text-slate-600">سعر الشراء:</label>
+              <input
+                type="number"
+                min="0"
+                step="0.5"
+                placeholder="التكلفة"
+                value={quickCost}
+                onChange={e => setQuickCost(e.target.value === '' ? '' : Math.max(0, Number(e.target.value)))}
+                className="w-24 bg-white border border-slate-300 rounded-lg px-2.5 py-2 text-center text-xs font-bold text-slate-900 focus:outline-none focus:border-blue-600"
+              />
+            </div>
+
             <button
               type="submit"
-              className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-lg flex items-center gap-1 transition-colors cursor-pointer shadow-sm"
+              className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs rounded-lg flex items-center gap-1 transition-colors cursor-pointer shadow-sm"
             >
-              <Plus className="w-4 h-4" />
-              إدراج صنف
+              <Plus className="w-4 h-4 text-blue-400" />
+              إدراج الصنف
             </button>
           </form>
         </div>
@@ -552,21 +481,21 @@ export const POSView: React.FC = () => {
           <div className="px-4 py-2 bg-slate-100 border-b border-slate-200 flex flex-wrap items-center justify-between text-xs">
             <div className="flex items-center gap-4">
               <span className="font-bold text-slate-700">
-                الصنف المحدد: <span className="text-blue-700">{activeRow.product.name}</span>
+                الصنف المورد: <span className="text-blue-700">{activeRow.product.name}</span>
               </span>
               <span className="text-slate-500">
                 الوحدة: <span className="font-bold text-slate-800">{activeRow.unit}</span>
               </span>
               <span className="text-slate-500">
-                رصيد المخزن: <span className="font-bold text-emerald-700">{activeRow.product.stock} {activeRow.unit}</span>
+                الرصيد قبل التوريد: <span className="font-bold text-slate-800">{activeRow.product.stock} {activeRow.unit}</span>
+              </span>
+              <span className="text-emerald-700 font-bold bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+                الرصيد بعد التوريد: {activeRow.product.stock + activeRow.quantity} {activeRow.unit}
               </span>
             </div>
             <div className="flex items-center gap-3">
               <span className="text-slate-500 text-[11px]">
-                سعر الشراء / التكلفة: {activeRow.product.cost_price || (activeRow.product.price_wholesale * 0.88).toFixed(1)} ج.م
-              </span>
-              <span className="text-slate-500 text-[11px]">
-                سعر الجملة: {activeRow.product.price_wholesale} ج.م | القطاعي: {activeRow.product.price} ج.م
+                سعر بيع الجملة: {activeRow.product.price_wholesale} ج.م | القطاعي: {activeRow.product.price} ج.م
               </span>
             </div>
           </div>
@@ -581,8 +510,8 @@ export const POSView: React.FC = () => {
                 <th className="py-2.5 px-3 text-center w-28">كود الصنف</th>
                 <th className="py-2.5 px-4">اسم الصنف والبيان</th>
                 <th className="py-2.5 px-3 text-center w-24">الوحدة</th>
-                <th className="py-2.5 px-3 text-center w-24">الكمية</th>
-                <th className="py-2.5 px-3 text-center w-28">السعر (ج.م)</th>
+                <th className="py-2.5 px-3 text-center w-24">الكمية الموردة</th>
+                <th className="py-2.5 px-3 text-center w-28">سعر الشراء (ج.م)</th>
                 <th className="py-2.5 px-4 text-left w-32">القيمة الإجمالية</th>
                 <th className="py-2.5 px-2 text-center w-12">حذف</th>
               </tr>
@@ -592,8 +521,8 @@ export const POSView: React.FC = () => {
                 <tr>
                   <td colSpan={8} className="py-12 text-center text-slate-400">
                     <div className="max-w-xs mx-auto space-y-2">
-                      <Receipt className="w-10 h-10 mx-auto text-slate-300" />
-                      <p className="font-bold text-slate-600 text-sm">الفاتورة فارغة حالياً</p>
+                      <Truck className="w-10 h-10 mx-auto text-slate-300" />
+                      <p className="font-bold text-slate-600 text-sm">إذن التوريد فارغ حالياً</p>
                       <p className="text-xs text-slate-400">
                         أدخل كود الصنف أو ابحث بالاسم في الشريط أعلاه لإدراجه فوراً
                       </p>
@@ -602,8 +531,7 @@ export const POSView: React.FC = () => {
                 </tr>
               ) : (
                 rows.map((row, index) => {
-                  const currentPrice = row.customPrice !== undefined ? row.customPrice : row.unitPrice;
-                  const rowTotal = currentPrice * row.quantity;
+                  const rowTotal = row.unitCost * row.quantity;
                   const isSelected = activeRowIndex === index;
 
                   return (
@@ -650,14 +578,14 @@ export const POSView: React.FC = () => {
                         />
                       </td>
 
-                      {/* السعر */}
+                      {/* سعر الشراء */}
                       <td className="py-2 px-3 text-center" onClick={e => e.stopPropagation()}>
                         <input
                           type="number"
                           min="0"
                           step="0.5"
-                          value={currentPrice}
-                          onChange={e => handleUpdatePrice(index, Math.max(0, Number(e.target.value)))}
+                          value={row.unitCost}
+                          onChange={e => handleUpdateCost(index, Math.max(0, Number(e.target.value)))}
                           className="w-20 text-center bg-white border border-slate-300 rounded px-1.5 py-1 text-xs font-bold text-slate-900 focus:outline-none focus:border-blue-600 shadow-sm"
                         />
                       </td>
@@ -690,19 +618,19 @@ export const POSView: React.FC = () => {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 items-center">
             {/* Notes Field */}
             <div className="lg:col-span-2">
-              <label className="block text-[11px] font-bold text-slate-600 mb-1">ملاحظات الفاتورة</label>
+              <label className="block text-[11px] font-bold text-slate-600 mb-1">ملاحظات التوريد والشحن</label>
               <input
                 type="text"
                 value={notes}
                 onChange={e => setNotes(e.target.value)}
-                placeholder="أية شروط أو ملاحظات خاصة على الفاتورة..."
+                placeholder="رقم فاتورة المورد الورقية أو أية شروط خاصة..."
                 className="w-full bg-white border border-slate-300 rounded-lg px-3 py-1.5 text-xs text-slate-900 focus:outline-none focus:border-blue-600"
               />
             </div>
 
             {/* Discount */}
             <div>
-              <label className="block text-[11px] font-bold text-slate-600 mb-1">الخصم (ج.م)</label>
+              <label className="block text-[11px] font-bold text-slate-600 mb-1">خصم مكتسب من المورد (ج.م)</label>
               <div className="relative">
                 <input
                   type="number"
@@ -725,13 +653,13 @@ export const POSView: React.FC = () => {
                 <span className="font-bold text-slate-900">{totalAmount.toLocaleString()} ج.م</span>
               </div>
               {discount > 0 && (
-                <div className="flex justify-between text-rose-600">
-                  <span>قيمة الخصم:</span>
+                <div className="flex justify-between text-emerald-600">
+                  <span>الخصم المكتسب:</span>
                   <span className="font-bold">-{discount.toLocaleString()} ج.م</span>
                 </div>
               )}
-              <div className="flex justify-between text-base font-black text-blue-700 border-t border-slate-200 pt-1">
-                <span>الصافي النهائي:</span>
+              <div className="flex justify-between text-base font-black text-slate-900 border-t border-slate-200 pt-1">
+                <span>إجمالي مستحق الشراء:</span>
                 <span>{finalAmount.toLocaleString()} ج.م</span>
               </div>
             </div>
@@ -740,21 +668,9 @@ export const POSView: React.FC = () => {
           {/* Action Buttons Bar */}
           <div className="mt-4 pt-3 border-t border-slate-200 flex flex-wrap items-center justify-between gap-3">
             <div className="flex items-center gap-2">
-              <button
-                onClick={() => setShowProfitSummary(!showProfitSummary)}
-                className="px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-lg flex items-center gap-1.5 transition-colors cursor-pointer border border-slate-300"
-              >
-                <TrendingUp className="w-4 h-4 text-blue-600" />
-                {showProfitSummary ? 'إخفاء الربحية' : 'ربحية الأصناف'}
-              </button>
-              
-              {showProfitSummary && (
-                <div className="text-xs bg-white px-3 py-1.5 rounded-lg border border-slate-200 text-slate-700 flex items-center gap-3">
-                  <span>م. التكلفة: <b>{totalCost.toFixed(0)} ج.م</b></span>
-                  <span>الربح التقديري: <b className="text-emerald-600">+{totalEstimatedProfit.toFixed(0)} ج.م</b></span>
-                  <span>الهامش: <b className="text-blue-600">{profitMargin}%</b></span>
-                </div>
-              )}
+              <span className="text-xs text-slate-500">
+                عند الحفظ: سيتم زيادة كميات الأصناف الموردة في جدول المخزن وتحديث سعر التكلفة
+              </span>
             </div>
 
             <div className="flex items-center gap-2">
@@ -767,21 +683,12 @@ export const POSView: React.FC = () => {
               </button>
 
               <button
-                onClick={() => handleSaveInvoice(false)}
-                disabled={rows.length === 0}
-                className="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white font-bold text-xs rounded-lg flex items-center gap-2 transition-colors cursor-pointer shadow-sm"
-              >
-                <Save className="w-4 h-4" />
-                حفظ وإذن صرف (Enter)
-              </button>
-
-              <button
-                onClick={() => handleSaveInvoice(true)}
+                onClick={handleSavePurchase}
                 disabled={rows.length === 0}
                 className="px-6 py-2.5 bg-slate-900 hover:bg-slate-800 disabled:opacity-50 text-white font-bold text-xs rounded-lg flex items-center gap-2 transition-colors cursor-pointer shadow-sm"
               >
-                <Printer className="w-4 h-4 text-blue-400" />
-                حفظ وطباعة الفاتورة
+                <Save className="w-4 h-4 text-blue-400" />
+                حفظ وإذن توريد مخزن (Enter)
               </button>
             </div>
           </div>
@@ -795,7 +702,7 @@ export const POSView: React.FC = () => {
             <div className="p-4 bg-slate-900 text-white flex items-center justify-between">
               <h3 className="text-sm font-bold flex items-center gap-2">
                 <Search className="w-4 h-4 text-blue-400" />
-                البحث عن صنف وإدراجه في الفاتورة (F3)
+                البحث عن صنف لإدراجه في إذن التوريد (F3)
               </h3>
               <button 
                 onClick={() => setShowProductSearchModal(false)}
@@ -829,20 +736,20 @@ export const POSView: React.FC = () => {
                       className="p-3 hover:bg-blue-50 cursor-pointer flex items-center justify-between text-xs transition-colors"
                     >
                       <div className="flex items-center gap-3">
-                        <span className="font-mono font-bold text-blue-700 bg-blue-50 px-2 py-0.5 rounded border border-blue-200">
+                        <span className="font-mono font-bold text-slate-700 bg-slate-100 px-2 py-0.5 rounded border border-slate-200">
                           {prod.code}
                         </span>
                         <div>
                           <div className="font-bold text-slate-900">{prod.name}</div>
-                          <div className="text-[11px] text-slate-500">الوحدة: {prod.unit} | رصيد المخزن: {prod.stock}</div>
+                          <div className="text-[11px] text-slate-500">الوحدة: {prod.unit} | الرصيد الحالي: {prod.stock}</div>
                         </div>
                       </div>
                       <div className="text-left">
-                        <div className="font-bold text-blue-700">
-                          {pricingMode === 'wholesale' ? prod.price_wholesale : prod.price} ج.م
+                        <div className="font-bold text-slate-900">
+                          التكلفة: {prod.cost || (prod.price_wholesale * 0.88).toFixed(1)} ج.م
                         </div>
                         <div className="text-[10px] text-slate-400">
-                          {pricingMode === 'wholesale' ? 'سعر جملة' : 'سعر قطاعي'}
+                          الجملة: {prod.price_wholesale} ج.م | القطاعي: {prod.price} ج.م
                         </div>
                       </div>
                     </div>
@@ -852,13 +759,6 @@ export const POSView: React.FC = () => {
           </div>
         </div>
       )}
-
-      {/* Invoice Print Modal */}
-      <InvoicePrintModal
-        isOpen={isPrintModalOpen}
-        onClose={() => setIsPrintModalOpen(false)}
-        sale={completedSaleForPrint}
-      />
     </div>
   );
 };

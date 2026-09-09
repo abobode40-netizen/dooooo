@@ -62,12 +62,14 @@ export interface SaleItem {
   id: string;
   sale_id: string;
   product_id: string;
+  code?: string;
   product_name: string;
   unit: string;
   quantity: number;
   unit_price: number;
   total_price: number;
   price_type: 'retail' | 'wholesale';
+  cost?: number;
 }
 
 export interface Sale {
@@ -79,10 +81,41 @@ export interface Sale {
   final_amount: number;
   payment_type: 'cash' | 'debt' | 'visa';
   customer_name: string;
+  customer_code?: string;
   customer_phone?: string;
   cashier_name?: string;
   notes?: string;
+  warehouse?: string;
   items: SaleItem[];
+}
+
+export interface PurchaseItem {
+  id: string;
+  purchase_id: string;
+  product_id: string;
+  code?: string;
+  product_name: string;
+  unit: string;
+  quantity: number;
+  unit_cost: number;
+  total_cost: number;
+}
+
+export interface Purchase {
+  id: string;
+  invoice_number: string;
+  created_at: string;
+  total_amount: number;
+  discount: number;
+  final_amount: number;
+  payment_type: 'cash' | 'debt' | 'bank';
+  supplier_name: string;
+  supplier_code?: string;
+  supplier_phone?: string;
+  receiver_name?: string;
+  notes?: string;
+  warehouse?: string;
+  items: PurchaseItem[];
 }
 
 export interface CashCounterDenomination {
@@ -119,8 +152,11 @@ export interface DebtTransaction {
 
 export interface CustomerDebt {
   id: string;
+  customer_code?: string;
   customer_name: string;
   phone: string;
+  phone2?: string;
+  address?: string;
   current_debt: number;
   notes: string;
   created_at: string;
@@ -143,5 +179,6 @@ export interface DatabaseBackup {
     cash_counter_sessions: CashCounterSession[];
     cash_counter_denominations: CashCounterDenomination[];
     customer_debts: CustomerDebt[];
+    purchases?: Purchase[];
   };
 }

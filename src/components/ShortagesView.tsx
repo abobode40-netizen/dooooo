@@ -12,7 +12,8 @@ import {
   Check, 
   X,
   FileSpreadsheet,
-  Layers
+  Layers,
+  Printer
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { ShortageList, ShortageItem } from '../types';
@@ -76,6 +77,7 @@ export const ShortagesView: React.FC = () => {
     const id = createShortageList(newListDate);
     setSelectedListId(id);
     setIsAddListModalOpen(false);
+    showToast('تم إنشاء قائمة نواقص جديدة بنجاح', 'success');
   };
 
   const handleAddItem = (e: React.FormEvent) => {
@@ -104,6 +106,7 @@ export const ShortagesView: React.FC = () => {
     setItemNotes('');
     setProductSearch('');
     setIsAddItemModalOpen(false);
+    showToast('تمت إضافة الصنف الناقص إلى القائمة', 'success');
   };
 
   const copyForWhatsApp = () => {
@@ -126,23 +129,29 @@ export const ShortagesView: React.FC = () => {
   };
 
   return (
-    <div className="space-y-6">
-      {/* Top Header */}
-      <div className="bg-slate-800/80 rounded-2xl p-5 border border-slate-700 shadow-xl flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
-          <h2 className="text-lg font-bold text-white flex items-center gap-2">
-            <AlertTriangle className="w-5 h-5 text-amber-400" />
-            سجل وقوائم النواقص اليومية
-          </h2>
-          <p className="text-xs text-slate-400">متابعة البضائع الناقصة وتحديد الأصناف التي تم استلامها وتوريدها</p>
+    <div className="space-y-4 font-sans text-slate-800 animate-in fade-in duration-150">
+      {/* Top Header Card */}
+      <div className="bg-white rounded-xl p-4 border border-slate-200 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-lg bg-blue-600 flex items-center justify-center text-white shadow-sm">
+            <AlertTriangle className="w-5 h-5" />
+          </div>
+          <div>
+            <h2 className="text-lg font-black text-slate-900 flex items-center gap-2">
+              سجل وقوائم النواقص اليومية
+            </h2>
+            <p className="text-xs text-slate-500">
+              حصر البضائع والطلبات الناقصة ومتابعة ما تم توريده واستلامه
+            </p>
+          </div>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2.5">
+        <div className="flex flex-wrap items-center gap-2">
           <button
             onClick={() => setIsAddListModalOpen(true)}
-            className="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-slate-100 font-bold text-xs rounded-xl transition-all flex items-center gap-2 border border-slate-600"
+            className="px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold text-xs rounded-lg border border-slate-300 transition-colors flex items-center gap-1.5 cursor-pointer"
           >
-            <Calendar className="w-4 h-4 text-amber-400" />
+            <Calendar className="w-4 h-4 text-blue-600" />
             إنشاء قائمة تاريخ جديد
           </button>
 
@@ -150,7 +159,7 @@ export const ShortagesView: React.FC = () => {
             <>
               <button
                 onClick={() => setIsAddItemModalOpen(true)}
-                className="px-4 py-2 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs rounded-xl shadow-lg shadow-amber-500/20 transition-all flex items-center gap-2"
+                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-lg shadow-sm transition-colors flex items-center gap-1.5 cursor-pointer"
               >
                 <Plus className="w-4 h-4" />
                 إضافة صنف ناقص
@@ -158,7 +167,7 @@ export const ShortagesView: React.FC = () => {
 
               <button
                 onClick={copyForWhatsApp}
-                className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs rounded-xl transition-all flex items-center gap-2 shadow-md shadow-emerald-600/20"
+                className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-lg transition-colors flex items-center gap-1.5 cursor-pointer shadow-sm"
                 title="نسخ نص التقرير لإرساله للتاجر أو المندوب عبر واتساب"
               >
                 <Share2 className="w-4 h-4" />
@@ -169,11 +178,11 @@ export const ShortagesView: React.FC = () => {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-start">
         {/* Date Lists Sidebar */}
-        <div className="lg:col-span-4 bg-slate-800/80 rounded-2xl p-4 border border-slate-700 shadow-xl space-y-3">
-          <h3 className="text-xs font-bold text-slate-300 flex items-center gap-2 pb-2 border-b border-slate-700">
-            <Calendar className="w-4 h-4 text-amber-400" />
+        <div className="lg:col-span-4 bg-white rounded-xl p-4 border border-slate-200 shadow-sm space-y-3">
+          <h3 className="text-xs font-bold text-slate-900 flex items-center gap-2 pb-2 border-b border-slate-100">
+            <Calendar className="w-4 h-4 text-blue-600" />
             تواريخ قوائم النواقص ({shortageLists.length})
           </h3>
 
@@ -187,25 +196,25 @@ export const ShortagesView: React.FC = () => {
                 <div
                   key={list.id}
                   onClick={() => setSelectedListId(list.id)}
-                  className={`cursor-pointer rounded-xl p-3 border transition-all flex items-center justify-between group ${
+                  className={`cursor-pointer rounded-lg p-2.5 border transition-all flex items-center justify-between group ${
                     isSelected
-                      ? 'bg-amber-500/10 border-amber-500/60 shadow-md'
-                      : 'bg-slate-900/60 border-slate-800 hover:border-slate-700 hover:bg-slate-900'
+                      ? 'bg-blue-50 border-blue-400 shadow-xs'
+                      : 'bg-slate-50/70 border-slate-200 hover:border-slate-300 hover:bg-slate-100'
                   }`}
                 >
                   <div className="flex items-center gap-2.5">
                     <div
-                      className={`w-8 h-8 rounded-lg flex items-center justify-center font-bold text-xs ${
-                        isSelected ? 'bg-amber-500 text-slate-950 font-black' : 'bg-slate-800 text-slate-300'
+                      className={`w-7 h-7 rounded-md flex items-center justify-center font-bold text-xs ${
+                        isSelected ? 'bg-blue-600 text-white font-black' : 'bg-slate-200 text-slate-700'
                       }`}
                     >
-                      <Calendar className="w-4 h-4" />
+                      <Calendar className="w-3.5 h-3.5" />
                     </div>
                     <div>
-                      <h4 className={`text-xs font-bold ${isSelected ? 'text-amber-400' : 'text-slate-200'}`}>
+                      <h4 className={`text-xs font-bold ${isSelected ? 'text-blue-900' : 'text-slate-800'}`}>
                         {list.list_date}
                       </h4>
-                      <p className="text-[10px] text-slate-400">
+                      <p className="text-[10px] text-slate-500">
                         {itemsInList.length} صنف مسجل
                       </p>
                     </div>
@@ -213,11 +222,11 @@ export const ShortagesView: React.FC = () => {
 
                   <div className="flex items-center gap-2">
                     {pendingInList > 0 ? (
-                      <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                      <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-rose-50 text-rose-700 border border-rose-200">
                         {pendingInList} معلق
                       </span>
                     ) : (
-                      <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                      <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
                         مكتمل
                       </span>
                     )}
@@ -227,9 +236,10 @@ export const ShortagesView: React.FC = () => {
                         e.stopPropagation();
                         if (window.confirm(`هل أنت متأكد من حذف قائمة نواقص ${list.list_date}؟`)) {
                           deleteShortageList(list.id);
+                          showToast('تم حذف القائمة بنجاح', 'info');
                         }
                       }}
-                      className="opacity-0 group-hover:opacity-100 p-1 rounded hover:bg-rose-500/20 hover:text-rose-400 text-slate-500 transition-all"
+                      className="opacity-0 group-hover:opacity-100 p-1 rounded hover:bg-rose-50 hover:text-rose-600 text-slate-400 transition-all cursor-pointer"
                       title="حذف القائمة"
                     >
                       <Trash2 className="w-3.5 h-3.5" />
@@ -240,56 +250,56 @@ export const ShortagesView: React.FC = () => {
             })}
 
             {shortageLists.length === 0 && (
-              <p className="text-xs text-slate-500 text-center py-6">لا توجد قوائم نواقص بعد</p>
+              <p className="text-xs text-slate-400 text-center py-6">لا توجد قوائم نواقص بعد</p>
             )}
           </div>
         </div>
 
         {/* Selected List Items Details */}
-        <div className="lg:col-span-8 bg-slate-800/80 rounded-2xl p-5 border border-slate-700 shadow-xl space-y-4">
+        <div className="lg:col-span-8 bg-white rounded-xl p-5 border border-slate-200 shadow-sm space-y-4">
           {activeList ? (
             <>
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-700">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-100">
                 <div>
                   <div className="flex items-center gap-2">
-                    <span className="text-xs px-2.5 py-0.5 rounded-lg bg-amber-500/20 text-amber-300 font-bold border border-amber-500/40">
+                    <span className="text-xs px-2.5 py-0.5 rounded-lg bg-blue-50 text-blue-700 font-bold border border-blue-200">
                       قائمة يوم: {activeList.list_date}
                     </span>
                   </div>
-                  <p className="text-xs text-slate-400 mt-1">
-                    إجمالي الأصناف: <strong className="text-white">{totalInList}</strong> | تم الاستلام: <strong className="text-emerald-400">{arrivedCount}</strong> | بانتظار التوريد: <strong className="text-amber-400">{pendingCount}</strong>
+                  <p className="text-xs text-slate-500 mt-1">
+                    إجمالي الأصناف: <strong className="text-slate-900">{totalInList}</strong> | تم الاستلام: <strong className="text-emerald-700">{arrivedCount}</strong> | بانتظار التوريد: <strong className="text-rose-600">{pendingCount}</strong>
                   </p>
                 </div>
 
-                <div className="w-full sm:w-48 bg-slate-900 rounded-full h-2.5 overflow-hidden border border-slate-700">
+                <div className="w-full sm:w-48 bg-slate-100 rounded-full h-2.5 overflow-hidden border border-slate-200">
                   <div 
-                    className="bg-emerald-500 h-full transition-all duration-300"
+                    className="bg-emerald-600 h-full transition-all duration-300"
                     style={{ width: totalInList > 0 ? `${(arrivedCount / totalInList) * 100}%` : '0%' }}
                   />
                 </div>
               </div>
 
               {/* Items List */}
-              <div className="space-y-2.5">
+              <div className="space-y-2">
                 {currentItems.map((item, idx) => (
                   <div
                     key={item.id}
-                    className={`rounded-xl p-3.5 border transition-all flex items-center justify-between gap-3 ${
+                    className={`rounded-lg p-3 border transition-colors flex items-center justify-between gap-3 ${
                       item.arrived
-                        ? 'bg-emerald-950/20 border-emerald-800/40 text-slate-400'
-                        : 'bg-slate-900/90 border-slate-700 text-slate-100 hover:border-amber-500/40'
+                        ? 'bg-emerald-50/40 border-emerald-200 text-slate-500'
+                        : 'bg-white border-slate-200 text-slate-900 hover:border-blue-300'
                     }`}
                   >
                     <div className="flex items-center gap-3 flex-1 min-w-0">
                       <button
                         onClick={() => toggleShortageItemArrived(item.id)}
-                        className={`p-1 rounded-lg transition-transform active:scale-90 ${
-                          item.arrived ? 'text-emerald-400 hover:text-emerald-300' : 'text-slate-500 hover:text-amber-400'
+                        className={`p-1 rounded-lg transition-transform active:scale-90 cursor-pointer ${
+                          item.arrived ? 'text-emerald-600 hover:text-emerald-700' : 'text-slate-400 hover:text-blue-600'
                         }`}
-                        title={item.arrived ? 'تعليم كغير مستلم' : 'تعليم كتم الاستلام'}
+                        title={item.arrived ? 'تعليم كغير مستلم' : 'تعليم كتم الاستلام والتوريد'}
                       >
                         {item.arrived ? (
-                          <CheckCircle2 className="w-5 h-5 fill-emerald-500/20" />
+                          <CheckCircle2 className="w-5 h-5 fill-emerald-100 text-emerald-600" />
                         ) : (
                           <Circle className="w-5 h-5" />
                         )}
@@ -297,14 +307,14 @@ export const ShortagesView: React.FC = () => {
 
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-2">
-                          <span className="text-xs font-mono text-slate-500">#{idx + 1}</span>
-                          <h4 className={`text-xs font-bold truncate ${item.arrived ? 'line-through text-slate-400' : 'text-slate-100'}`}>
+                          <span className="text-xs font-mono text-slate-400 font-bold">#{idx + 1}</span>
+                          <h4 className={`text-xs font-bold truncate ${item.arrived ? 'line-through text-slate-400' : 'text-slate-900'}`}>
                             {item.product_name}
                           </h4>
                         </div>
                         {item.notes && (
-                          <p className="text-[11px] text-amber-400/80 mt-0.5">
-                            ملاحظات: {item.notes}
+                          <p className="text-[11px] text-amber-700 font-medium mt-0.5">
+                            ملاحظة: {item.notes}
                           </p>
                         )}
                       </div>
@@ -314,8 +324,8 @@ export const ShortagesView: React.FC = () => {
                       <span
                         className={`text-[10px] font-bold px-2 py-0.5 rounded ${
                           item.arrived
-                            ? 'bg-emerald-500/20 text-emerald-400'
-                            : 'bg-amber-500/20 text-amber-300'
+                            ? 'bg-emerald-100 text-emerald-800'
+                            : 'bg-amber-50 text-amber-800 border border-amber-200'
                         }`}
                       >
                         {item.arrived ? 'تم التوريد والاستلام' : 'مطلوب توفيره'}
@@ -323,7 +333,7 @@ export const ShortagesView: React.FC = () => {
 
                       <button
                         onClick={() => deleteShortageItem(item.id)}
-                        className="p-1.5 text-slate-500 hover:text-rose-400 hover:bg-rose-500/10 rounded-lg transition-colors"
+                        className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer"
                         title="حذف"
                       >
                         <Trash2 className="w-3.5 h-3.5" />
@@ -333,12 +343,12 @@ export const ShortagesView: React.FC = () => {
                 ))}
 
                 {currentItems.length === 0 && (
-                  <div className="py-12 text-center bg-slate-900/40 rounded-xl border border-dashed border-slate-700">
-                    <AlertTriangle className="w-10 h-10 text-slate-600 mx-auto mb-2 opacity-60" />
-                    <p className="text-xs text-slate-400">لا توجد نواقص مسجلة في هذه القائمة حتى الآن</p>
+                  <div className="py-12 text-center bg-slate-50 rounded-xl border border-dashed border-slate-300">
+                    <AlertTriangle className="w-10 h-10 text-slate-400 mx-auto mb-2 opacity-60" />
+                    <p className="text-xs text-slate-500 font-bold">لا توجد نواقص مسجلة في هذه القائمة حتى الآن</p>
                     <button
                       onClick={() => setIsAddItemModalOpen(true)}
-                      className="mt-3 px-3.5 py-1.5 bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 text-xs rounded-lg font-bold transition-colors inline-flex items-center gap-1.5 border border-amber-500/30"
+                      className="mt-3 px-3.5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs rounded-lg font-bold transition-colors inline-flex items-center gap-1.5 cursor-pointer shadow-sm"
                     >
                       <Plus className="w-3.5 h-3.5" />
                       إضافة صنف ناقص الآن
@@ -357,11 +367,11 @@ export const ShortagesView: React.FC = () => {
 
       {/* Create New List Modal */}
       {isAddListModalOpen && (
-        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-sm overflow-hidden shadow-2xl animate-in fade-in zoom-in duration-150">
-            <div className="flex items-center justify-between p-4 bg-slate-800 border-b border-slate-700">
-              <h3 className="text-sm font-bold text-white flex items-center gap-2">
-                <Calendar className="w-4 h-4 text-amber-400" />
+        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white border border-slate-200 rounded-xl w-full max-w-sm overflow-hidden shadow-xl animate-in fade-in zoom-in duration-150">
+            <div className="flex items-center justify-between p-4 bg-slate-900 text-white">
+              <h3 className="text-sm font-bold flex items-center gap-2">
+                <Calendar className="w-4 h-4 text-blue-400" />
                 إنشاء قائمة نواقص جديدة
               </h3>
               <button
@@ -372,29 +382,29 @@ export const ShortagesView: React.FC = () => {
               </button>
             </div>
 
-            <form onSubmit={handleCreateList} className="p-5 space-y-4">
+            <form onSubmit={handleCreateList} className="p-5 space-y-4 text-xs">
               <div>
-                <label className="text-xs font-semibold text-slate-300 block mb-1">اختر التاريخ</label>
+                <label className="font-bold text-slate-700 block mb-1">اختر التاريخ</label>
                 <input
                   type="date"
                   required
                   value={newListDate}
                   onChange={e => setNewListDate(e.target.value)}
-                  className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3.5 py-2 text-xs text-white focus:outline-none focus:border-amber-500 text-right"
+                  className="w-full bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 text-slate-900 font-bold focus:bg-white focus:outline-none focus:border-blue-600 text-right"
                 />
               </div>
 
               <div className="flex gap-2 pt-2">
                 <button
                   type="submit"
-                  className="flex-1 py-2.5 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs rounded-xl transition-colors"
+                  className="flex-1 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-lg shadow-sm transition-colors cursor-pointer"
                 >
                   إنشاء القائمة
                 </button>
                 <button
                   type="button"
                   onClick={() => setIsAddListModalOpen(false)}
-                  className="px-4 py-2.5 bg-slate-800 text-slate-300 text-xs rounded-xl font-semibold hover:bg-slate-700 transition-colors"
+                  className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-lg transition-colors cursor-pointer"
                 >
                   إلغاء
                 </button>
@@ -406,11 +416,11 @@ export const ShortagesView: React.FC = () => {
 
       {/* Add Shortage Item Modal */}
       {isAddItemModalOpen && (
-        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-md overflow-hidden shadow-2xl animate-in fade-in zoom-in duration-150">
-            <div className="flex items-center justify-between p-4 bg-slate-800 border-b border-slate-700">
-              <h3 className="text-sm font-bold text-white flex items-center gap-2">
-                <Plus className="w-4 h-4 text-amber-400" />
+        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white border border-slate-200 rounded-xl w-full max-w-md overflow-hidden shadow-xl animate-in fade-in zoom-in duration-150">
+            <div className="flex items-center justify-between p-4 bg-slate-900 text-white">
+              <h3 className="text-sm font-bold flex items-center gap-2">
+                <Plus className="w-4 h-4 text-blue-400" />
                 إضافة صنف إلى قائمة النواقص
               </h3>
               <button
@@ -421,9 +431,9 @@ export const ShortagesView: React.FC = () => {
               </button>
             </div>
 
-            <form onSubmit={handleAddItem} className="p-5 space-y-4">
+            <form onSubmit={handleAddItem} className="p-5 space-y-4 text-xs">
               <div>
-                <label className="text-xs font-semibold text-slate-300 block mb-1">
+                <label className="font-bold text-slate-700 block mb-1">
                   اختر من دليل الأصناف (أو اكتب اسماً يدوياً بالأسفل)
                 </label>
                 <div className="relative mb-2">
@@ -433,11 +443,11 @@ export const ShortagesView: React.FC = () => {
                     value={productSearch}
                     onChange={e => setProductSearch(e.target.value)}
                     placeholder="ابحث في الأصناف..."
-                    className="w-full bg-slate-800 border border-slate-700 rounded-xl pr-9 pl-3 py-1.5 text-xs text-white focus:outline-none focus:border-amber-500"
+                    className="w-full bg-slate-50 border border-slate-300 rounded-lg pr-9 pl-3 py-1.5 text-xs text-slate-900 focus:bg-white focus:outline-none focus:border-blue-600"
                   />
                 </div>
 
-                <div className="max-h-40 overflow-y-auto space-y-1 border border-slate-800 rounded-xl p-1 bg-slate-950/60">
+                <div className="max-h-40 overflow-y-auto space-y-1 border border-slate-200 rounded-lg p-1 bg-slate-50">
                   {filteredProducts.map(p => (
                     <button
                       key={p.id}
@@ -446,21 +456,21 @@ export const ShortagesView: React.FC = () => {
                         setSelectedProductId(p.id);
                         setCustomItemName('');
                       }}
-                      className={`w-full text-right p-2 rounded-lg text-xs flex items-center justify-between transition-colors ${
+                      className={`w-full text-right p-2 rounded-md text-xs flex items-center justify-between transition-colors cursor-pointer ${
                         selectedProductId === p.id
-                          ? 'bg-amber-500 text-slate-950 font-bold'
-                          : 'hover:bg-slate-800 text-slate-200'
+                          ? 'bg-blue-600 text-white font-bold'
+                          : 'hover:bg-slate-200 text-slate-800'
                       }`}
                     >
                       <span className="truncate">{p.name}</span>
-                      <span className="text-[10px] font-mono opacity-70">#{p.code}</span>
+                      <span className="text-[10px] font-mono opacity-80">#{p.code}</span>
                     </button>
                   ))}
                 </div>
               </div>
 
               <div>
-                <label className="text-xs font-semibold text-slate-300 block mb-1">
+                <label className="font-bold text-slate-700 block mb-1">
                   أو اكتب اسم صنف مخصص (غير موجود في الدليل):
                 </label>
                 <input
@@ -471,32 +481,32 @@ export const ShortagesView: React.FC = () => {
                     if (e.target.value) setSelectedProductId('');
                   }}
                   placeholder="مثال: مناديل جود كير 550 منديل"
-                  className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3.5 py-2 text-xs text-white focus:outline-none focus:border-amber-500"
+                  className="w-full bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 text-slate-900 focus:bg-white focus:outline-none focus:border-blue-600"
                 />
               </div>
 
               <div>
-                <label className="text-xs font-semibold text-slate-300 block mb-1">ملاحظات / الكمية المطلوبة (اختياري)</label>
+                <label className="font-bold text-slate-700 block mb-1">ملاحظات / الكمية المطلوبة (اختياري)</label>
                 <input
                   type="text"
                   value={itemNotes}
                   onChange={e => setItemNotes(e.target.value)}
                   placeholder="مثال: مطلوب 10 كراتين عاجل"
-                  className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3.5 py-2 text-xs text-white focus:outline-none focus:border-amber-500"
+                  className="w-full bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 text-slate-900 focus:bg-white focus:outline-none focus:border-blue-600"
                 />
               </div>
 
-              <div className="flex gap-2 pt-2 border-t border-slate-800">
+              <div className="flex gap-2 pt-2 border-t border-slate-100">
                 <button
                   type="submit"
-                  className="flex-1 py-2.5 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs rounded-xl transition-colors"
+                  className="flex-1 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-lg shadow-sm transition-colors cursor-pointer"
                 >
                   إضافة للنواقص
                 </button>
                 <button
                   type="button"
                   onClick={() => setIsAddItemModalOpen(false)}
-                  className="px-4 py-2.5 bg-slate-800 text-slate-300 text-xs rounded-xl font-semibold hover:bg-slate-700 transition-colors"
+                  className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-lg transition-colors cursor-pointer"
                 >
                   إلغاء
                 </button>

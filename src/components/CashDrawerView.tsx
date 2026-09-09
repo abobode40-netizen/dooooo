@@ -81,6 +81,7 @@ export const CashDrawerView: React.FC = () => {
     };
 
     saveCashSession(newSession);
+    showToast('تم حفظ جلسة الإغلاق ومطابقة الخزينة بنجاح', 'success');
   };
 
   const handleReset = () => {
@@ -94,36 +95,41 @@ export const CashDrawerView: React.FC = () => {
       1: 0,
       0.5: 0
     });
+    showToast('تم تصفير عداد الفئات', 'info');
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 font-sans text-slate-800 animate-in fade-in duration-150">
       {/* Header */}
-      <div className="bg-slate-800/80 rounded-2xl p-5 border border-slate-700 shadow-xl flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
-          <h2 className="text-lg font-bold text-white flex items-center gap-2">
-            <Coins className="w-5 h-5 text-amber-400" />
-            درج النقدية وحساب الفئات (التفقيط اليومي)
-          </h2>
-          <p className="text-xs text-slate-400">حصر وتفقيط فئات الجنيه المصري ومطابقة المبيعات النقدية مع رصيد الدرج</p>
+      <div className="bg-white rounded-xl p-4 border border-slate-200 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-lg bg-blue-600 flex items-center justify-center text-white shadow-sm">
+            <Coins className="w-5 h-5" />
+          </div>
+          <div>
+            <h2 className="text-lg font-black text-slate-900 flex items-center gap-2">
+              درج النقدية وحساب الفئات (التفقيط اليومي)
+            </h2>
+            <p className="text-xs text-slate-500">حصر وتفقيط فئات الجنيه المصري ومطابقة المبيعات النقدية مع رصيد الخزينة</p>
+          </div>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2">
           <button
             onClick={handleReset}
-            className="px-3.5 py-2 bg-slate-700 hover:bg-slate-600 text-slate-200 text-xs font-semibold rounded-xl flex items-center gap-1.5 transition-colors"
+            className="px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-lg border border-slate-300 flex items-center gap-1.5 transition-colors cursor-pointer"
           >
-            <RotateCcw className="w-4 h-4" />
+            <RotateCcw className="w-4 h-4 text-blue-600" />
             تصفير العداد
           </button>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-start">
         {/* Denominations Counter (Left Side) */}
-        <div className="lg:col-span-7 bg-slate-800/80 rounded-2xl p-5 border border-slate-700 shadow-xl space-y-4">
-          <h3 className="text-xs font-bold text-slate-300 flex items-center gap-2 pb-2 border-b border-slate-700">
-            <Layers className="w-4 h-4 text-amber-400" />
+        <div className="lg:col-span-7 bg-white rounded-xl p-5 border border-slate-200 shadow-sm space-y-4">
+          <h3 className="text-xs font-bold text-slate-900 flex items-center gap-2 pb-2 border-b border-slate-100">
+            <Layers className="w-4 h-4 text-blue-600" />
             تفقيط وعد فئات النقدية (الجنيه المصري)
           </h3>
 
@@ -135,15 +141,15 @@ export const CashDrawerView: React.FC = () => {
               return (
                 <div
                   key={denom}
-                  className="bg-slate-900/90 rounded-xl p-3 border border-slate-800 flex items-center justify-between gap-3 hover:border-slate-700 transition-all"
+                  className="bg-slate-50 rounded-xl p-3 border border-slate-200 flex items-center justify-between gap-3 hover:border-slate-300 transition-all"
                 >
                   <div className="flex items-center gap-2">
-                    <div className="w-10 h-10 rounded-lg bg-amber-500/10 border border-amber-500/30 flex items-center justify-center font-black text-xs text-amber-400 font-mono">
+                    <div className="w-10 h-10 rounded-lg bg-blue-50 border border-blue-200 flex items-center justify-center font-black text-xs text-blue-700 font-mono">
                       {denom}
                     </div>
                     <div>
-                      <div className="text-xs font-bold text-white">فئة {denom} ج.م</div>
-                      <div className="text-[10px] text-slate-400 font-mono">
+                      <div className="text-xs font-bold text-slate-900">فئة {denom} ج.م</div>
+                      <div className="text-[10px] text-slate-500 font-mono">
                         {count} ورقة = {subtotal.toLocaleString()} ج.م
                       </div>
                     </div>
@@ -156,7 +162,7 @@ export const CashDrawerView: React.FC = () => {
                       value={count || ''}
                       onChange={e => handleCountChange(denom, e.target.value)}
                       placeholder="0"
-                      className="w-full bg-slate-800 border border-slate-700 rounded-lg px-2.5 py-1.5 text-center text-xs font-bold text-white focus:outline-none focus:border-amber-500"
+                      className="w-full bg-white border border-slate-300 rounded-lg px-2.5 py-1.5 text-center text-xs font-bold text-slate-900 focus:outline-none focus:border-blue-600"
                     />
                   </div>
                 </div>
@@ -164,75 +170,75 @@ export const CashDrawerView: React.FC = () => {
             })}
           </div>
 
-          <div className="p-3.5 bg-slate-900 rounded-xl border border-slate-800 flex items-center justify-between">
-            <span className="text-xs text-slate-300 font-semibold">إجمالي النقدية المحصورة بالدرج:</span>
-            <span className="text-base font-black text-amber-400 font-mono">
+          <div className="p-3.5 bg-blue-50/70 rounded-xl border border-blue-200 flex items-center justify-between">
+            <span className="text-xs text-blue-900 font-bold">إجمالي النقدية المحصورة بالدرج:</span>
+            <span className="text-base font-black text-blue-900 font-mono">
               {countedBreakdown.total.toLocaleString()} ج.م
             </span>
           </div>
         </div>
 
         {/* Reconciliation and Closing Report (Right Side) */}
-        <div className="lg:col-span-5 bg-slate-800/80 rounded-2xl p-5 border border-slate-700 shadow-xl space-y-4">
-          <h3 className="text-xs font-bold text-slate-300 flex items-center gap-2 pb-2 border-b border-slate-700">
-            <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+        <div className="lg:col-span-5 bg-white rounded-xl p-5 border border-slate-200 shadow-sm space-y-4">
+          <h3 className="text-xs font-bold text-slate-900 flex items-center gap-2 pb-2 border-b border-slate-100">
+            <CheckCircle2 className="w-4 h-4 text-emerald-600" />
             مطابقة الخزينة وتقرير الإغلاق
           </h3>
 
           <form onSubmit={handleSaveSession} className="space-y-3.5">
             <div>
-              <label className="text-[11px] font-semibold text-slate-300 block mb-1">اسم الكاشير / المسؤول</label>
+              <label className="text-[11px] font-bold text-slate-700 block mb-1">اسم الكاشير / المسؤول</label>
               <input
                 type="text"
                 value={cashierName}
                 onChange={e => setCashierName(e.target.value)}
-                className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-1.5 text-xs text-white focus:outline-none focus:border-amber-500"
+                className="w-full bg-slate-50 border border-slate-300 rounded-lg px-3 py-1.5 text-xs text-slate-900 font-bold focus:bg-white focus:outline-none focus:border-blue-600"
               />
             </div>
 
             <div>
-              <label className="text-[11px] font-semibold text-slate-300 block mb-1">الرصيد الافتتاحي للدرج (الفكة الصباحية)</label>
+              <label className="text-[11px] font-bold text-slate-700 block mb-1">الرصيد الافتتاحي للدرج (الفكة الصباحية)</label>
               <input
                 type="number"
                 value={openingBalance}
                 onChange={e => setOpeningBalance(parseFloat(e.target.value) || 0)}
-                className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-1.5 text-xs text-white font-mono focus:outline-none focus:border-amber-500"
+                className="w-full bg-slate-50 border border-slate-300 rounded-lg px-3 py-1.5 text-xs text-slate-900 font-mono font-bold focus:bg-white focus:outline-none focus:border-blue-600"
               />
             </div>
 
             {/* Reconciliation Box */}
-            <div className="bg-slate-900/90 rounded-xl p-4 border border-slate-800 space-y-2 text-xs">
-              <div className="flex justify-between text-slate-300">
+            <div className="bg-slate-50 rounded-xl p-3.5 border border-slate-200 space-y-2 text-xs">
+              <div className="flex justify-between text-slate-600">
                 <span>الرصيد الافتتاحي:</span>
-                <span className="font-bold font-mono">{openingBalance.toLocaleString()} ج.م</span>
+                <span className="font-bold font-mono text-slate-900">{openingBalance.toLocaleString()} ج.م</span>
               </div>
-              <div className="flex justify-between text-slate-300">
+              <div className="flex justify-between text-slate-600">
                 <span>مبيعات الكاش المسجلة اليوم:</span>
-                <span className="font-bold text-emerald-400 font-mono">+{todayCashSales.toLocaleString()} ج.م</span>
+                <span className="font-bold text-emerald-700 font-mono">+{todayCashSales.toLocaleString()} ج.م</span>
               </div>
-              <div className="flex justify-between text-slate-300 border-t border-slate-800 pt-1.5 font-bold">
+              <div className="flex justify-between text-slate-700 border-t border-slate-200 pt-1.5 font-bold">
                 <span>الرصيد المفترض توفره:</span>
-                <span className="font-mono text-white">{expectedTotal.toLocaleString()} ج.م</span>
+                <span className="font-mono text-slate-900">{expectedTotal.toLocaleString()} ج.م</span>
               </div>
-              <div className="flex justify-between text-slate-300 font-bold">
+              <div className="flex justify-between text-slate-700 font-bold">
                 <span>الرصيد الفعلي المحسوب:</span>
-                <span className="font-mono text-amber-400">{countedBreakdown.total.toLocaleString()} ج.م</span>
+                <span className="font-mono text-blue-700 font-black">{countedBreakdown.total.toLocaleString()} ج.م</span>
               </div>
 
               {/* Difference Status */}
-              <div className="flex justify-between items-center border-t border-slate-800 pt-2 font-black text-sm">
-                <span>حالة الخزينة:</span>
+              <div className="flex justify-between items-center border-t border-slate-200 pt-2 font-black text-xs">
+                <span className="text-slate-800">حالة الخزينة:</span>
                 {difference === 0 ? (
-                  <span className="text-emerald-400 flex items-center gap-1 font-bold text-xs">
+                  <span className="text-emerald-700 flex items-center gap-1 font-bold">
                     <CheckCircle2 className="w-4 h-4" />
                     متطابقة تماماً (0 ج.م)
                   </span>
                 ) : difference > 0 ? (
-                  <span className="text-sky-400 font-mono">
+                  <span className="text-blue-700 font-mono">
                     زيادة في الخزينة: +{difference.toLocaleString()} ج.م
                   </span>
                 ) : (
-                  <span className="text-rose-400 font-mono">
+                  <span className="text-rose-700 font-mono">
                     عجز في الخزينة: {difference.toLocaleString()} ج.م
                   </span>
                 )}
@@ -240,19 +246,19 @@ export const CashDrawerView: React.FC = () => {
             </div>
 
             <div>
-              <label className="text-[11px] font-semibold text-slate-300 block mb-1">ملاحظات الإغلاق</label>
+              <label className="text-[11px] font-bold text-slate-700 block mb-1">ملاحظات الإغلاق</label>
               <input
                 type="text"
                 value={sessionNotes}
                 onChange={e => setSessionNotes(e.target.value)}
                 placeholder="ملاحظات وردية اليوم..."
-                className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-1.5 text-xs text-white focus:outline-none focus:border-amber-500"
+                className="w-full bg-slate-50 border border-slate-300 rounded-lg px-3 py-1.5 text-xs text-slate-900 focus:bg-white focus:outline-none focus:border-blue-600"
               />
             </div>
 
             <button
               type="submit"
-              className="w-full py-2.5 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs rounded-xl shadow-lg shadow-amber-500/20 transition-all flex items-center justify-center gap-2"
+              className="w-full py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-lg shadow-sm transition-colors flex items-center justify-center gap-2 cursor-pointer"
             >
               <Save className="w-4 h-4" />
               حفظ واعتماد جلسة الإغلاق
@@ -260,9 +266,9 @@ export const CashDrawerView: React.FC = () => {
           </form>
 
           {/* Historical Saved Sessions */}
-          <div className="pt-3 border-t border-slate-700 space-y-2">
-            <h4 className="text-xs font-bold text-slate-400 flex items-center gap-1.5">
-              <History className="w-3.5 h-3.5" />
+          <div className="pt-3 border-t border-slate-200 space-y-2">
+            <h4 className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
+              <History className="w-3.5 h-3.5 text-blue-600" />
               جلسات الإغلاق السابقة ({cashSessions.length})
             </h4>
 
@@ -270,15 +276,15 @@ export const CashDrawerView: React.FC = () => {
               {cashSessions.map(sess => (
                 <div
                   key={sess.id}
-                  className="bg-slate-900/60 p-2.5 rounded-xl border border-slate-800 flex items-center justify-between text-xs"
+                  className="bg-slate-50 p-2.5 rounded-lg border border-slate-200 flex items-center justify-between text-xs"
                 >
                   <div>
-                    <div className="font-bold text-slate-200">{sess.session_date} ({sess.cashier_name})</div>
-                    <div className="text-[10px] text-slate-400">{sess.notes}</div>
+                    <div className="font-bold text-slate-900">{sess.session_date} ({sess.cashier_name})</div>
+                    <div className="text-[10px] text-slate-500">{sess.notes}</div>
                   </div>
                   <div className="text-left font-mono">
-                    <div className="font-bold text-amber-400">{sess.total_cash_counted.toLocaleString()} ج.م</div>
-                    <div className={`text-[10px] ${sess.difference === 0 ? 'text-emerald-400' : sess.difference > 0 ? 'text-sky-400' : 'text-rose-400'}`}>
+                    <div className="font-bold text-slate-900">{sess.total_cash_counted.toLocaleString()} ج.م</div>
+                    <div className={`text-[10px] font-bold ${sess.difference === 0 ? 'text-emerald-700' : sess.difference > 0 ? 'text-blue-700' : 'text-rose-700'}`}>
                       {sess.difference === 0 ? 'متطابق' : sess.difference > 0 ? `+${sess.difference}` : sess.difference} ج.م
                     </div>
                   </div>
