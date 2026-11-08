@@ -19,7 +19,8 @@ import {
   LogOut,
   User,
   AlertTriangle,
-  FolderOpen
+  FolderOpen,
+  Package
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { 
@@ -47,11 +48,14 @@ export const BackupView: React.FC = () => {
     cashSessions, 
     exportBackupJSON, 
     importBackupJSON, 
+    exportProductsJSON,
+    importProductsJSON,
     resetToInitialData,
     showToast
   } = useApp();
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const productsFileInputRef = useRef<HTMLInputElement>(null);
   const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
 
   // Google Drive & Auth State
@@ -195,12 +199,26 @@ export const BackupView: React.FC = () => {
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.download = `store_pos_erp_backup_${new Date().toISOString().split('T')[0]}.json`;
+    link.download = `store_pos_erp_full_backup_${new Date().toISOString().split('T')[0]}.json`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
     URL.revokeObjectURL(url);
-    showToast('تم تصدير نسخة احتياطية كاملة من قاعدة البيانات بنجاح');
+    showToast('تم تصدير نسخة احتياطية شاملة للنظام بالكامل بنجاح');
+  };
+
+  const handleDownloadProductsBackup = () => {
+    const jsonStr = exportProductsJSON();
+    const blob = new Blob([jsonStr], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `products_backup_${new Date().toISOString().split('T')[0]}.json`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+    showToast(`تم تصدير نسخة احتياطية من الأصناف فقط (${products.length} صنف) بنجاح`);
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -213,6 +231,21 @@ export const BackupView: React.FC = () => {
       const success = importBackupJSON(content);
       if (success && fileInputRef.current) {
         fileInputRef.current.value = '';
+      }
+    };
+    reader.readAsText(file);
+  };
+
+  const handleProductsFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = event => {
+      const content = event.target?.result as string;
+      const success = importProductsJSON(content);
+      if (success && productsFileInputRef.current) {
+        productsFileInputRef.current.value = '';
       }
     };
     reader.readAsText(file);
@@ -461,37 +494,81 @@ export const BackupView: React.FC = () => {
             </div>
           </div>
 
-          <div className="space-y-2.5">
-            <button
-              onClick={handleDownloadBackup}
-              className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-lg shadow-sm transition-colors flex items-center justify-center gap-2 cursor-pointer"
-            >
-              <Download className="w-4 h-4" />
-              تنزيل نسخة احتياطية محلية (ملف JSON)
-            </button>
-
-            <div>
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept=".json"
-                onChange={handleFileChange}
-                className="hidden"
-              />
-              <button
-                onClick={() => fileInputRef.current?.click()}
-                className="w-full py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold text-xs rounded-lg border border-slate-300 transition-colors flex items-center justify-center gap-2 cursor-pointer"
-              >
-                <Upload className="w-4 h-4 text-blue-600" />
-                استيراد واستعادة نسخة احتياطية من جهازك
-              </button>
+          <div className="space-y-3">
+            {/* Full System Backup Section */}
+            <div className="p-3 bg-emerald-50/60 rounded-xl border border-emerald-200/80 space-y-2">
+              <div className="text-xs font-black text-emerald-900 flex items-center gap-1.5">
+                <Database className="w-4 h-4 text-emerald-700" />
+                <span>النسخة الاحتياطية للبرنامج كامل (شامل كل البيانات)</span>
+              </div>
+              <p className="text-[11px] text-emerald-800">
+                يشمل الأصناف، المبيعات، فواتير الشراء، حسابات وديون العملاء، وسجلات الأسعار.
+              </p>
+              <div className="flex flex-col sm:flex-row gap-2 pt-1">
+                <button
+                  onClick={handleDownloadBackup}
+                  className="flex-1 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-lg shadow-xs transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
+                >
+                  <Download className="w-3.5 h-3.5" />
+                  نسخة احتياطية للبرنامج كامل
+                </button>
+                <button
+                  onClick={() => fileInputRef.current?.click()}
+                  className="px-3.5 py-2 bg-white hover:bg-emerald-50 text-emerald-800 border border-emerald-300 font-bold text-xs rounded-lg transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
+                >
+                  <Upload className="w-3.5 h-3.5 text-emerald-600" />
+                  استعادة البرنامج كامل
+                </button>
+              </div>
             </div>
+
+            {/* Products-Only Backup Section */}
+            <div className="p-3 bg-blue-50/60 rounded-xl border border-blue-200/80 space-y-2">
+              <div className="text-xs font-black text-blue-900 flex items-center gap-1.5">
+                <Package className="w-4 h-4 text-blue-700" />
+                <span>نسخة احتياطية للأصناف فقط ({products.length} صنف)</span>
+              </div>
+              <p className="text-[11px] text-blue-800">
+                تصدير واستيراد قائمة الأصناف وكود الصنف والأسعار والوحدات فقط بشكل منفصل.
+              </p>
+              <div className="flex flex-col sm:flex-row gap-2 pt-1">
+                <button
+                  onClick={handleDownloadProductsBackup}
+                  className="flex-1 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-lg shadow-xs transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
+                >
+                  <Download className="w-3.5 h-3.5" />
+                  تنزيل نسخة الأصناف (JSON)
+                </button>
+                <input
+                  ref={productsFileInputRef}
+                  type="file"
+                  accept=".json"
+                  onChange={handleProductsFileChange}
+                  className="hidden"
+                />
+                <button
+                  onClick={() => productsFileInputRef.current?.click()}
+                  className="px-3.5 py-2 bg-white hover:bg-blue-50 text-blue-800 border border-blue-300 font-bold text-xs rounded-lg transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
+                >
+                  <Upload className="w-3.5 h-3.5 text-blue-600" />
+                  استعادة نسخة الأصناف
+                </button>
+              </div>
+            </div>
+
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".json"
+              onChange={handleFileChange}
+              className="hidden"
+            />
 
             <button
               onClick={handleReset}
-              className="w-full py-2.5 bg-rose-50 hover:bg-rose-100 text-rose-700 font-bold text-xs rounded-lg border border-rose-200 transition-colors flex items-center justify-center gap-2 cursor-pointer"
+              className="w-full py-2 bg-rose-50 hover:bg-rose-100 text-rose-700 font-bold text-xs rounded-lg border border-rose-200 transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
             >
-              <RotateCcw className="w-4 h-4" />
+              <RotateCcw className="w-3.5 h-3.5" />
               استرجاع بيانات المصنع الأولية
             </button>
           </div>

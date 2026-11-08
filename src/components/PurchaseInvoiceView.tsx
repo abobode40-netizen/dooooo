@@ -83,8 +83,8 @@ export const PurchaseInvoiceView: React.FC = () => {
     if (!quickSearchQuery.trim()) return [];
     const q = quickSearchQuery.toLowerCase().trim();
     return products.filter(p => 
-      p.name.toLowerCase().includes(q) || 
-      p.code.toLowerCase().includes(q)
+      String(p.name || '').toLowerCase().includes(q) || 
+      String(p.code || '').toLowerCase().includes(q)
     ).slice(0, 8);
   }, [quickSearchQuery, products]);
 
@@ -178,8 +178,8 @@ export const PurchaseInvoiceView: React.FC = () => {
     if (!quickSearchQuery.trim()) return;
 
     const q = quickSearchQuery.toLowerCase().trim();
-    const match = products.find(p => p.code.toLowerCase().trim() === q || p.name.toLowerCase().trim() === q) ||
-                  products.find(p => p.code.toLowerCase().includes(q) || p.name.toLowerCase().includes(q));
+    const match = products.find(p => String(p.code || '').toLowerCase().trim() === q || String(p.name || '').toLowerCase().trim() === q) ||
+                  products.find(p => String(p.code || '').toLowerCase().includes(q) || String(p.name || '').toLowerCase().includes(q));
 
     if (match) {
       handleAddProduct(match, Number(quickQty) || 1, Number(quickCost) || undefined);
@@ -214,7 +214,7 @@ export const PurchaseInvoiceView: React.FC = () => {
       total_amount: totalAmount,
       discount: Number(discount) || 0,
       final_amount: finalAmount,
-      payment_type: paymentType,
+      payment_type: (paymentType === 'visa' ? 'bank' : paymentType) as 'cash' | 'debt' | 'bank',
       supplier_name: supplierName.trim() || 'مورد عام',
       supplier_code: supplierCode.trim() || 'SUP-01',
       supplier_phone: supplierPhone.trim() || undefined,
@@ -724,7 +724,7 @@ export const PurchaseInvoiceView: React.FC = () => {
 
               <div className="max-h-72 overflow-y-auto divide-y divide-slate-100 border border-slate-200 rounded-lg">
                 {products
-                  .filter(p => !quickSearchQuery.trim() || p.name.toLowerCase().includes(quickSearchQuery.toLowerCase()) || p.code.toLowerCase().includes(quickSearchQuery.toLowerCase()))
+                  .filter(p => !quickSearchQuery.trim() || String(p.name || '').toLowerCase().includes(quickSearchQuery.toLowerCase()) || String(p.code || '').toLowerCase().includes(quickSearchQuery.toLowerCase()))
                   .slice(0, 15)
                   .map(prod => (
                     <div

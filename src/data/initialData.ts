@@ -224,9 +224,25 @@ export const INITIAL_DATABASE: DatabaseBackup = {
     cash_counter_denominations: [],
     customer_debts: [
       {
+        id: "debt-demo-94",
+        customer_code: "94",
+        customer_name: "عميل نقدي عام",
+        address: "المنفذ والمخزن الرئيسي",
+        phone: "01000000094",
+        phone2: "",
+        current_debt: 0,
+        notes: "حساب العميل النقدي الافتراضي للمبيعات المباشرة",
+        created_at: "2026-08-01T08:00:00.000Z",
+        updated_at: "2026-08-01T08:00:00.000Z",
+        transactions: []
+      },
+      {
         id: "debt-demo-1",
+        customer_code: "101",
         customer_name: "عميل - محل الأمانة",
+        address: "شارع الجلاء - بجوار مسجد النور",
         phone: "01012345678",
+        phone2: "01234567890",
         current_debt: 1250,
         notes: "حساب توريد أسبوعي",
         created_at: "2026-08-15T10:00:00.000Z",
@@ -238,14 +254,32 @@ export const INITIAL_DATABASE: DatabaseBackup = {
       },
       {
         id: "debt-demo-2",
+        customer_code: "102",
         customer_name: "أحمد عبد الله (بقالة البركة)",
+        address: "شارع الجمهورية - أمام المحطة القديمة",
         phone: "01198765432",
+        phone2: "",
         current_debt: 840,
         notes: "شيكارة سكر + كرتونة زيت",
         created_at: "2026-08-20T14:30:00.000Z",
         updated_at: "2026-09-01T11:00:00.000Z",
         transactions: [
           { id: "t3", date: "2026-08-20", type: "debt_increase", amount: 840, notes: "طلب بضاعة آجل" }
+        ]
+      },
+      {
+        id: "debt-demo-3",
+        customer_code: "103",
+        customer_name: "سوبرماركت التوحيد والنور (محمود)",
+        address: "ميدان الساعة - حي الزهور",
+        phone: "01288776655",
+        phone2: "",
+        current_debt: 3450,
+        notes: "توريد شهري - جملة",
+        created_at: "2026-08-25T11:00:00.000Z",
+        updated_at: "2026-09-04T15:00:00.000Z",
+        transactions: [
+          { id: "t4", date: "2026-08-25", type: "debt_increase", amount: 3450, notes: "فاتورة بضاعة مواد غذائية" }
         ]
       }
     ]

@@ -11,17 +11,24 @@ import {
   Phone, 
   Trash2, 
   X,
-  FileText
+  FileText,
+  Upload,
+  FileSpreadsheet
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { CustomerDebt } from '../types';
+import { ImportCustomersModal } from './ImportCustomersModal';
+import { exportCustomersToExcel } from '../utils/customerImportExport';
 
-export const DebtLedgerView: React.FC = () => {
+export const DebtLedgerView: React.FC<{ onNavigateTab?: (tab: string) => void }> = ({ onNavigateTab }) => {
   const { customerDebts, addCustomer, addDebtTransaction, deleteCustomerDebt, showToast } = useApp();
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCustomerId, setSelectedCustomerId] = useState<string>(
     customerDebts[0]?.id || ''
   );
+
+  // Import Modal state
+  const [isImportModalOpen, setIsImportModalOpen] = useState(false);
 
   // Add Customer Modal
   const [isAddCustModalOpen, setIsAddCustModalOpen] = useState(false);
@@ -119,18 +126,44 @@ export const DebtLedgerView: React.FC = () => {
           </div>
         </div>
 
-        <div className="flex items-center gap-3">
-          <div className="px-3.5 py-1.5 rounded-lg bg-rose-50 border border-rose-200 text-xs">
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="px-3 py-1.5 rounded-lg bg-rose-50 border border-rose-200 text-xs">
             <span className="text-rose-700 font-bold">إجمالي المديونيات المستحقة: </span>
             <span className="font-black text-rose-800 text-sm font-mono">{(totalDebtsSum || 0).toLocaleString()} ج.م</span>
           </div>
 
           <button
+            onClick={() => setIsImportModalOpen(true)}
+            className="px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold text-xs rounded-lg shadow-2xs transition-colors flex items-center gap-1.5 cursor-pointer border border-slate-200"
+            title="استيراد وتحديث ملفات العملاء والديون"
+          >
+            <Upload className="w-4 h-4 text-blue-600" />
+            استرداد العملاء
+          </button>
+
+          <button
+            onClick={() => {
+              if (customerDebts.length === 0) {
+                showToast('لا توجد بيانات عملاء لتصديرها', 'warning');
+                return;
+              }
+              exportCustomersToExcel(customerDebts);
+              showToast(`تم تصدير ${customerDebts.length} عميل إلى ملف Excel بنجاح`, 'success');
+            }}
+            disabled={customerDebts.length === 0}
+            className="px-3 py-2 bg-emerald-700 hover:bg-emerald-800 disabled:opacity-50 text-white font-bold text-xs rounded-lg shadow-sm transition-colors flex items-center gap-1.5 cursor-pointer"
+            title="تصدير دفتر وسجل العملاء كملف Excel"
+          >
+            <FileSpreadsheet className="w-4 h-4 text-emerald-200" />
+            تصدير Excel
+          </button>
+
+          <button
             onClick={() => setIsAddCustModalOpen(true)}
-            className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-lg shadow-sm transition-colors flex items-center gap-1.5 cursor-pointer"
+            className="px-3.5 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-lg shadow-sm transition-colors flex items-center gap-1.5 cursor-pointer"
           >
             <Plus className="w-4 h-4" />
-            إضافة حساب عميل جديد
+            عميل جديد
           </button>
         </div>
       </div>
@@ -272,6 +305,17 @@ export const DebtLedgerView: React.FC = () => {
                     <ArrowUpRight className="w-4 h-4" />
                     إضافة دين
                   </button>
+
+                  {onNavigateTab && (
+                    <button
+                      onClick={() => onNavigateTab('sales')}
+                      className="px-3 py-2 bg-blue-50 hover:bg-blue-100 text-blue-700 text-xs font-bold rounded-lg flex items-center gap-1 border border-blue-200 transition-colors cursor-pointer"
+                      title="عرض فواتير البيع لهذا العميل"
+                    >
+                      <FileText className="w-4 h-4 text-blue-600" />
+                      <span>فواتير العميل</span>
+                    </button>
+                  )}
 
                   <button
                     onClick={() => {
@@ -543,6 +587,11 @@ export const DebtLedgerView: React.FC = () => {
           </div>
         </div>
       )}
+      {/* Customer Import Modal */}
+      <ImportCustomersModal
+        isOpen={isImportModalOpen}
+        onClose={() => setIsImportModalOpen(false)}
+      />
     </div>
   );
 };

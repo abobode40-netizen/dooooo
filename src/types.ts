@@ -4,6 +4,7 @@ export interface Product {
   barcode: string | null;
   price: number; // Retail price (قطاعي)
   cost: number;
+  cost_price?: number;
   stock: number;
   category: string | null;
   created_at: string;
@@ -11,6 +12,10 @@ export interface Product {
   code: string;
   unit: string;
   price_wholesale: number; // Wholesale price (جملة)
+  old_price?: number; // السعر السابق قطاعي
+  old_price_wholesale?: number; // السعر السابق جملة
+  price_change_type?: 'increase' | 'decrease' | 'none';
+  is_new?: boolean;
 }
 
 export interface ShortageList {
@@ -42,6 +47,8 @@ export interface PriceChangeDay {
   id: string;
   day_date: string;
   created_at: string;
+  title?: string;
+  notes?: string;
 }
 
 export interface PriceChangeItem {
@@ -83,6 +90,7 @@ export interface Sale {
   customer_name: string;
   customer_code?: string;
   customer_phone?: string;
+  customer_address?: string;
   cashier_name?: string;
   notes?: string;
   warehouse?: string;

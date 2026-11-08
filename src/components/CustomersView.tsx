@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useRef } from 'react';
+import React, { useState, useMemo } from 'react';
 import { 
   Users, 
   Plus, 
@@ -20,11 +20,14 @@ import {
   MessageCircle,
   Hash,
   UserCheck,
-  RefreshCw
+  RefreshCw,
+  FileDown
 } from 'lucide-react';
-import * as XLSX from 'xlsx';
 import { useApp } from '../context/AppContext';
 import { CustomerDebt } from '../types';
+import { exportCustomersListPDF } from '../utils/pdfExport';
+import { ImportCustomersModal } from './ImportCustomersModal';
+import { downloadCustomerExcelTemplate, exportCustomersToExcel } from '../utils/customerImportExport';
 
 interface CustomerFormData {
   customer_code: string;
@@ -36,7 +39,7 @@ interface CustomerFormData {
   notes: string;
 }
 
-export const CustomersView: React.FC = () => {
+export const CustomersView: React.FC<{ onNavigateTab?: (tab: string) => void }> = ({ onNavigateTab }) => {
   const { 
     customerDebts, 
     addCustomer, 
@@ -65,13 +68,10 @@ export const CustomersView: React.FC = () => {
 
   // Import Modal state
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
-  const [importedRows, setImportedRows] = useState<any[]>([]);
-  const [importFileName, setImportFileName] = useState('');
-  const [isProcessingFile, setIsProcessingFile] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // PDF Print Modal state
   const [isPdfPrintModalOpen, setIsPdfPrintModalOpen] = useState(false);
+  const [isExportingPdf, setIsExportingPdf] = useState(false);
 
   // Filtered customers
   const filteredCustomers = useMemo(() => {
@@ -169,120 +169,43 @@ export const CustomersView: React.FC = () => {
     }
   };
 
-  // Handle File Upload (Excel or CSV or JSON)
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    setImportFileName(file.name);
-    setIsProcessingFile(true);
-
-    const reader = new FileReader();
-    const isJson = file.name.endsWith('.json');
-
-    reader.onload = evt => {
-      try {
-        if (isJson) {
-          const content = evt.target?.result as string;
-          const parsed = JSON.parse(content);
-          const list = Array.isArray(parsed) ? parsed : (parsed.customers || parsed.customer_debts || []);
-          const normalized = list.map((item: any, idx: number) => ({
-            customer_code: item.customer_code || item.code || item['كود العميل'] || item['الكود'] || `CUST-${(customerDebts.length + idx + 1).toString().padStart(3, '0')}`,
-            customer_name: item.customer_name || item.name || item['اسم العميل'] || item['الاسم'] || '',
-            address: item.address || item['العنوان'] || item['عنوان العميل'] || '',
-            phone: item.phone || item.phone1 || item['التليفون الاول'] || item['الهاتف'] || item['الموبايل'] || '',
-            phone2: item.phone2 || item['التليفون الثاني'] || item['هاتف 2'] || item['موبايل 2'] || '',
-            initialDebt: Number(item.initialDebt || item.current_debt || item.debt || item['الرصيد'] || item['المديونية'] || 0)
-          })).filter((c: any) => c.customer_name.trim());
-          setImportedRows(normalized);
-        } else {
-          // XLSX or CSV
-          const data = new Uint8Array(evt.target?.result as ArrayBuffer);
-          const workbook = XLSX.read(data, { type: 'array' });
-          const firstSheetName = workbook.SheetNames[0];
-          const worksheet = workbook.Sheets[firstSheetName];
-          const rawRows: any[] = XLSX.utils.sheet_to_json(worksheet, { defval: '' });
-
-          const normalized = rawRows.map((row: any, idx: number) => {
-            // Find fields with flexible arabic / english matching
-            const findKey = (candidates: string[]) => {
-              for (const key of Object.keys(row)) {
-                const normKey = key.trim().toLowerCase();
-                if (candidates.some(c => normKey.includes(c.toLowerCase()))) {
-                  return row[key];
-                }
-              }
-              return '';
-            };
-
-            const code = findKey(['كود العميل', 'كود', 'code', 'cust_code']) || `CUST-${(customerDebts.length + idx + 1).toString().padStart(3, '0')}`;
-            const name = findKey(['اسم العميل', 'الاسم', 'اسم', 'name', 'customer']);
-            const address = findKey(['عنوان العميل', 'العنوان', 'عنوان', 'address']);
-            const phone = findKey(['التليفون الاول', 'تليفون 1', 'هاتف 1', 'موبايل 1', 'phone', 'phone1', 'mobile']);
-            const phone2 = findKey(['التليفون الثاني', 'تليفون 2', 'هاتف 2', 'موبايل 2', 'phone2', 'mobile2']);
-            const debt = findKey(['رصيد', 'الرصيد', 'مديونية', 'debt', 'balance']);
-
-            return {
-              customer_code: String(code).trim(),
-              customer_name: String(name).trim(),
-              address: String(address).trim(),
-              phone: String(phone).trim(),
-              phone2: String(phone2).trim(),
-              initialDebt: Number(debt) || 0
-            };
-          }).filter(c => c.customer_name.trim());
-
-          setImportedRows(normalized);
-        }
-      } catch (err) {
-        console.error(err);
-        showToast('تعذر قراءة الملف! يرجى التأكد من أن الملف سليم بصيغة Excel أو CSV', 'error');
-      } finally {
-        setIsProcessingFile(false);
-      }
-    };
-
-    if (isJson) {
-      reader.readAsText(file);
-    } else {
-      reader.readAsArrayBuffer(file);
-    }
-  };
-
-  // Confirm Import
-  const handleConfirmImport = () => {
-    if (importedRows.length === 0) {
-      showToast('لا توجد بيانات عملاء صالحة للاستيراد في هذا الملف', 'error');
+  // Export Customers List as Excel (.xlsx) file
+  const handleExportCustomersExcel = () => {
+    if (filteredCustomers.length === 0) {
+      showToast('لا توجد بيانات عملاء لتصديرها', 'warning');
       return;
     }
 
-    bulkImportCustomers(importedRows);
-    setIsImportModalOpen(false);
-    setImportedRows([]);
-    setImportFileName('');
-    if (fileInputRef.current) fileInputRef.current.value = '';
+    try {
+      exportCustomersToExcel(filteredCustomers);
+      showToast(`تم تصدير ${filteredCustomers.length} عميل إلى ملف Excel بنجاح`, 'success');
+    } catch (err) {
+      console.error('Error exporting customers to Excel:', err);
+      showToast('حدث خطأ أثناء تصدير ملف Excel للعملاء', 'error');
+    }
   };
 
-  // Download Sample CSV
-  const handleDownloadSampleFile = () => {
-    const headers = ['كود العميل', 'اسم العميل', 'العنوان', 'التليفون الاول', 'التليفون الثاني', 'الرصيد'];
-    const sampleRows = [
-      ['CUST-001', 'سوبرماركت الأمانة', 'شارع الجمهورية - وسط البلد', '01012345678', '01198765432', '1500'],
-      ['CUST-002', 'أحمد محمود للتجارة', 'ميدان المحطة - بجوار المسجد', '01234567890', '', '0'],
-      ['CUST-003', 'بقالة النور والبركة', 'حي السلام - شارع 15', '01501234567', '01099887766', '850']
-    ];
+  // Export Customers List as printable PDF using jsPDF
+  const handleExportCustomersPdf = async () => {
+    if (filteredCustomers.length === 0) {
+      showToast('لا توجد بيانات عملاء لتصديرها', 'warning');
+      return;
+    }
 
-    const csvContent = '\uFEFF' + [headers.join(','), ...sampleRows.map(r => r.join(','))].join('\n');
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = 'نموذج_استيراد_العملاء.csv';
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
-    showToast('تم تنزيل نموذج ملف العملاء بنجاح');
+    try {
+      setIsExportingPdf(true);
+      showToast('جاري إنشاء ملف PDF وتجهيز كشف العملاء للطباعة...', 'info');
+      await exportCustomersListPDF(filteredCustomers, {
+        searchQuery,
+        totalDebt: filteredCustomers.reduce((acc, c) => acc + (Number(c.current_debt) || 0), 0)
+      });
+      showToast('تم تصدير كشف العملاء كملف PDF بنجاح', 'success');
+    } catch (err) {
+      console.error('Error exporting customers PDF:', err);
+      showToast('حدث خطأ أثناء تصدير ملف PDF للعملاء', 'error');
+    } finally {
+      setIsExportingPdf(false);
+    }
   };
 
   return (
@@ -301,35 +224,57 @@ export const CustomersView: React.FC = () => {
               </span>
             </div>
             <p className="text-xs text-slate-500">
-              كود العميل، اسم العميل، العنوان، أرقام الاتصال، واسترداد ملفات العملاء وطباعة كشوف PDF
+              كود العميل، اسم العميل، العنوان، أرقام الاتصال، استرداد الملفات وتصدير كشوف Excel / PDF
             </p>
           </div>
         </div>
 
-        {/* Header Action Buttons (ضرب استرداد ملف أو PDF) */}
+        {/* Header Action Buttons */}
         <div className="flex flex-wrap items-center gap-2">
-          {/* ضرب استرداد ملف */}
+          {/* استرداد ملف عملاء */}
           <button
-            onClick={() => {
-              setImportedRows([]);
-              setImportFileName('');
-              setIsImportModalOpen(true);
-            }}
-            className="px-3.5 py-2 bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs rounded-lg flex items-center gap-1.5 transition-colors cursor-pointer shadow-sm"
-            title="استرداد ملف عملاء بصيغة Excel أو CSV"
+            onClick={() => setIsImportModalOpen(true)}
+            className="px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold text-xs rounded-lg flex items-center gap-1.5 transition-colors cursor-pointer border border-slate-200 shadow-xs"
+            title="استرداد واستيراد ملف عملاء بصيغة Excel أو PDF أو CSV أو JSON"
           >
-            <Upload className="w-4 h-4 text-blue-400" />
+            <Upload className="w-4 h-4 text-blue-600" />
             استرداد ملف عملاء
           </button>
 
-          {/* ضرب PDF */}
+          {/* تصدير ملف Excel */}
+          <button
+            onClick={handleExportCustomersExcel}
+            disabled={filteredCustomers.length === 0}
+            className="px-3.5 py-2 bg-emerald-700 hover:bg-emerald-800 disabled:opacity-50 text-white font-bold text-xs rounded-lg flex items-center gap-1.5 transition-colors cursor-pointer shadow-sm"
+            title="تصدير بيانات وسجل العملاء كملف إكسل Excel (.xlsx)"
+          >
+            <FileSpreadsheet className="w-4 h-4 text-emerald-200" />
+            <span>تصدير ملف Excel</span>
+          </button>
+
+          {/* تصدير PDF مباشر عبر jsPDF */}
+          <button
+            onClick={handleExportCustomersPdf}
+            disabled={isExportingPdf || filteredCustomers.length === 0}
+            className="px-3.5 py-2 bg-slate-900 hover:bg-slate-800 disabled:opacity-50 text-white font-bold text-xs rounded-lg flex items-center gap-1.5 transition-colors cursor-pointer shadow-sm"
+            title="تصدير كشف العملاء كملف PDF قابل للطباعة باستخدام مكتبة jsPDF"
+          >
+            {isExportingPdf ? (
+              <RefreshCw className="w-4 h-4 animate-spin text-blue-400" />
+            ) : (
+              <FileDown className="w-4 h-4 text-rose-400" />
+            )}
+            <span>تصدير كشف العملاء (PDF)</span>
+          </button>
+
+          {/* معاينة وطباعة */}
           <button
             onClick={() => setIsPdfPrintModalOpen(true)}
             className="px-3.5 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-lg flex items-center gap-1.5 transition-colors cursor-pointer shadow-sm"
-            title="تصدير وطباعة دليل العملاء PDF"
+            title="معاينة وطباعة دليل العملاء"
           >
             <Printer className="w-4 h-4" />
-            تصدير / طباعة PDF
+            معاينة وطباعة
           </button>
 
           {/* إضافة عميل جديد */}
@@ -462,11 +407,27 @@ export const CustomersView: React.FC = () => {
               {filteredCustomers.length === 0 ? (
                 <tr>
                   <td colSpan={8} className="py-12 text-center text-slate-400">
-                    <Users className="w-10 h-10 mx-auto text-slate-300 mb-2" />
-                    <p className="font-bold text-sm text-slate-600">لا يوجد عملاء مطابقين للبحث</p>
-                    <p className="text-[11px] text-slate-400 mt-1">
-                      يمكنك إضافة عميل جديد أو استرداد ملف عملاء من الأعلى
+                    <Users className="w-12 h-12 mx-auto text-slate-300 mb-2" />
+                    <p className="font-bold text-sm text-slate-700">لا يوجد عملاء مطابقين للبحث أو السجل فارغ</p>
+                    <p className="text-xs text-slate-500 mt-1 max-w-md mx-auto">
+                      يمكنك استرداد ملف عملاء كامل بضغطة واحدة من إكسيل (Excel) أو إضافة عميل جديد يدوياً.
                     </p>
+                    <div className="mt-4 flex items-center justify-center gap-3">
+                      <button
+                        onClick={() => setIsImportModalOpen(true)}
+                        className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-lg shadow-sm transition-colors flex items-center gap-1.5 cursor-pointer"
+                      >
+                        <Upload className="w-4 h-4" />
+                        استرداد ملف عملاء إكسيل
+                      </button>
+                      <button
+                        onClick={handleOpenAddModal}
+                        className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold text-xs rounded-lg border border-slate-200 transition-colors flex items-center gap-1.5 cursor-pointer"
+                      >
+                        <Plus className="w-4 h-4" />
+                        إضافة عميل يدوياً
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ) : (
@@ -588,9 +549,28 @@ export const CustomersView: React.FC = () => {
                       {/* الإجراءات */}
                       <td className="py-3 px-3 text-center">
                         <div className="flex items-center justify-center gap-1">
+                          {onNavigateTab && (
+                            <>
+                              <button
+                                onClick={() => onNavigateTab('debts')}
+                                className="p-1.5 text-blue-600 hover:text-white hover:bg-blue-600 rounded-lg transition-colors cursor-pointer"
+                                title="عرض كشف حساب المديونية والتحصيل"
+                              >
+                                <CreditCard className="w-3.5 h-3.5" />
+                              </button>
+                              <button
+                                onClick={() => onNavigateTab('sales')}
+                                className="p-1.5 text-indigo-600 hover:text-white hover:bg-indigo-600 rounded-lg transition-colors cursor-pointer"
+                                title="عرض فواتير البيع الخاصة بالعميل"
+                              >
+                                <ExternalLink className="w-3.5 h-3.5" />
+                              </button>
+                            </>
+                          )}
+
                           <button
                             onClick={() => handleOpenEditModal(customer)}
-                            className="p-1.5 text-slate-500 hover:text-blue-700 hover:bg-blue-50 rounded transition-colors cursor-pointer"
+                            className="p-1.5 text-slate-500 hover:text-blue-700 hover:bg-blue-50 rounded-lg transition-colors cursor-pointer"
                             title="تعديل بيانات العميل"
                           >
                             <Edit3 className="w-3.5 h-3.5" />
@@ -598,7 +578,7 @@ export const CustomersView: React.FC = () => {
 
                           <button
                             onClick={() => handleDeleteCustomer(customer)}
-                            className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded transition-colors cursor-pointer"
+                            className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer"
                             title="حذف العميل"
                           >
                             <Trash2 className="w-3.5 h-3.5" />
@@ -762,159 +742,12 @@ export const CustomersView: React.FC = () => {
       )}
 
       {/* ------------------------------------------------------------- */}
-      {/* 2. Modal: ضرب استرداد ملف عملاء (Excel / CSV / JSON) */}
+      {/* 2. Modal: استرداد ملف عملاء إكسيل وCSV (نافذة مخصصة واحترافية) */}
       {/* ------------------------------------------------------------- */}
-      {isImportModalOpen && (
-        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl border border-slate-200 w-full max-w-3xl shadow-xl overflow-hidden animate-in fade-in zoom-in duration-150">
-            <div className="p-4 bg-slate-900 text-white flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <FileSpreadsheet className="w-5 h-5 text-blue-400" />
-                <div>
-                  <h3 className="text-sm font-bold">ضرب واسترداد ملف العملاء (Excel / CSV / JSON)</h3>
-                  <p className="text-[11px] text-slate-400">
-                    استيراد مباشر لأعمدة: كود العميل، اسم العميل، العنوان، التليفون الأول، التليفون الثاني
-                  </p>
-                </div>
-              </div>
-              <button 
-                onClick={() => setIsImportModalOpen(false)}
-                className="text-slate-400 hover:text-white cursor-pointer p-1 rounded"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
-            <div className="p-5 space-y-4 text-xs">
-              {/* File Select Area */}
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 bg-slate-50 border border-dashed border-slate-300 rounded-xl">
-                <div>
-                  <div className="font-bold text-slate-900">اختر ملف العملاء من جهازك</div>
-                  <div className="text-[11px] text-slate-500 mt-0.5">
-                    يدعم ملفات إكسل (.xlsx, .xls) وملفات القيم المفصولة (.csv) وملفات JSON
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={handleDownloadSampleFile}
-                    className="px-3 py-1.5 bg-white border border-slate-300 text-slate-700 hover:bg-slate-100 font-bold rounded-lg transition-colors flex items-center gap-1.5 cursor-pointer shadow-xs"
-                    title="تنزيل نموذج ملف جاهز للتعبئة"
-                  >
-                    <Download className="w-3.5 h-3.5 text-blue-600" />
-                    تحميل نموذج Excel/CSV
-                  </button>
-
-                  <input
-                    ref={fileInputRef}
-                    type="file"
-                    accept=".xlsx,.xls,.csv,.json"
-                    onChange={handleFileUpload}
-                    className="hidden"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => fileInputRef.current?.click()}
-                    className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-lg shadow-sm transition-colors flex items-center gap-1.5 cursor-pointer"
-                  >
-                    <Upload className="w-3.5 h-3.5" />
-                    اختيار ملف
-                  </button>
-                </div>
-              </div>
-
-              {isProcessingFile && (
-                <div className="p-4 text-center text-slate-500 font-bold flex items-center justify-center gap-2">
-                  <RefreshCw className="w-4 h-4 animate-spin text-blue-600" />
-                  جاري قراءة واستخراج بيانات العملاء من الملف...
-                </div>
-              )}
-
-              {/* Preview Table */}
-              {importedRows.length > 0 ? (
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <span className="font-bold text-slate-900">
-                      معاينة البيانات المستخرجة من ({importFileName}): {importedRows.length} عميل
-                    </span>
-                    <span className="text-emerald-700 font-bold text-[11px] bg-emerald-50 px-2.5 py-0.5 rounded border border-emerald-200">
-                      جاهز للاستيراد
-                    </span>
-                  </div>
-
-                  <div className="max-h-60 overflow-y-auto border border-slate-200 rounded-xl overflow-x-auto">
-                    <table className="w-full text-right text-[11px]">
-                      <thead className="bg-slate-100 text-slate-700 font-bold sticky top-0">
-                        <tr className="border-b border-slate-200">
-                          <th className="py-2 px-2.5">الكود</th>
-                          <th className="py-2 px-2.5">اسم العميل</th>
-                          <th className="py-2 px-2.5">العنوان</th>
-                          <th className="py-2 px-2.5">التليفون الأول</th>
-                          <th className="py-2 px-2.5">التليفون الثاني</th>
-                          <th className="py-2 px-2.5 text-left">الرصيد</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-slate-100">
-                        {importedRows.slice(0, 50).map((row, idx) => (
-                          <tr key={idx} className="hover:bg-slate-50">
-                            <td className="py-2 px-2.5 font-mono text-slate-600">{row.customer_code || '-'}</td>
-                            <td className="py-2 px-2.5 font-bold text-slate-900">{row.customer_name}</td>
-                            <td className="py-2 px-2.5 text-slate-600">{row.address || '-'}</td>
-                            <td className="py-2 px-2.5 font-mono text-slate-600">{row.phone || '-'}</td>
-                            <td className="py-2 px-2.5 font-mono text-slate-600">{row.phone2 || '-'}</td>
-                            <td className="py-2 px-2.5 font-mono text-left">{row.initialDebt ? `${row.initialDebt} ج.م` : '0'}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-
-                  {importedRows.length > 50 && (
-                    <div className="text-[10px] text-slate-400 text-center">
-                      يتم عرض أول 50 سجلاً فقط في المعاينة، وسيتم استيراد كافة الـ {importedRows.length} عميل بالكامل.
-                    </div>
-                  )}
-                </div>
-              ) : (
-                !isProcessingFile && (
-                  <div className="py-8 text-center bg-slate-50 border border-slate-200 rounded-xl space-y-2">
-                    <FileSpreadsheet className="w-8 h-8 text-slate-400 mx-auto" />
-                    <div className="font-bold text-slate-700">لم يتم اختيار ملف بعد</div>
-                    <div className="text-[11px] text-slate-400 max-w-sm mx-auto">
-                      اضغط على "اختيار ملف" لاختيار ملف Excel أو CSV من جهازك لدمج واسترداد العملاء تلقائياً.
-                    </div>
-                  </div>
-                )
-              )}
-
-              {/* Action Buttons */}
-              <div className="pt-3 border-t border-slate-100 flex items-center justify-between">
-                <div className="text-[11px] text-slate-500">
-                  ملاحظة: في حالة وجود عميل مسجل بنفس الكود أو الاسم سيتم تحديث بياناته وعنوانه وهواتفه دون تكرار.
-                </div>
-                <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setIsImportModalOpen(false)}
-                    className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-lg transition-colors cursor-pointer"
-                  >
-                    إلغاء
-                  </button>
-                  <button
-                    type="button"
-                    disabled={importedRows.length === 0}
-                    onClick={handleConfirmImport}
-                    className="px-5 py-2 bg-slate-900 hover:bg-slate-800 disabled:opacity-40 text-white font-bold rounded-lg shadow-sm transition-colors cursor-pointer"
-                  >
-                    بدء الاسترداد والحفظ
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+      <ImportCustomersModal
+        isOpen={isImportModalOpen}
+        onClose={() => setIsImportModalOpen(false)}
+      />
 
       {/* ------------------------------------------------------------- */}
       {/* 3. Modal: تصدير وطباعة PDF (دليل العملاء الرسمي) */}
@@ -938,11 +771,24 @@ export const CustomersView: React.FC = () => {
 
               <div className="flex items-center gap-2">
                 <button
+                  onClick={handleExportCustomersPdf}
+                  disabled={isExportingPdf}
+                  className="px-3.5 py-2 bg-slate-800 hover:bg-slate-700 disabled:opacity-50 text-white font-bold text-xs rounded-lg shadow-sm flex items-center gap-1.5 transition-colors cursor-pointer border border-slate-700"
+                  title="تحميل ملف PDF رسمي عبر jsPDF"
+                >
+                  {isExportingPdf ? (
+                    <RefreshCw className="w-4 h-4 animate-spin text-blue-400" />
+                  ) : (
+                    <FileDown className="w-4 h-4 text-emerald-400" />
+                  )}
+                  تحميل كملف PDF
+                </button>
+                <button
                   onClick={() => window.print()}
                   className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-lg shadow-sm flex items-center gap-2 transition-colors cursor-pointer"
                 >
                   <Printer className="w-4 h-4" />
-                  طباعة الآن / حفظ كـ PDF
+                  طباعة فورية
                 </button>
                 <button
                   onClick={() => setIsPdfPrintModalOpen(false)}
@@ -1019,6 +865,11 @@ export const CustomersView: React.FC = () => {
           </div>
         </div>
       )}
+      {/* Customer Import / Export Modal */}
+      <ImportCustomersModal
+        isOpen={isImportModalOpen}
+        onClose={() => setIsImportModalOpen(false)}
+      />
     </div>
   );
 };

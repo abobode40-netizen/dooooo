@@ -10,17 +10,23 @@ import {
   CreditCard, 
   Layers,
   ArrowDownLeft,
-  FileText
+  FileText,
+  FileDown,
+  RefreshCw
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { Sale } from '../types';
 import { InvoicePrintModal } from './InvoicePrintModal';
+import { exportSalesHistoryPDF } from '../utils/pdfExport';
+import { SalesMovementChart } from './SalesMovementChart';
 
 export const SalesHistoryView: React.FC = () => {
-  const { sales } = useApp();
+  const { sales, showToast } = useApp();
   const [searchQuery, setSearchQuery] = useState('');
   const [paymentFilter, setPaymentFilter] = useState<string>('all');
   const [selectedSale, setSelectedSale] = useState<Sale | null>(null);
+  const [isExportingPdf, setIsExportingPdf] = useState<boolean>(false);
+  const [showChart, setShowChart] = useState<boolean>(true);
 
   const filteredSales = useMemo(() => {
     return (sales || []).filter(sale => {
@@ -39,6 +45,29 @@ export const SalesHistoryView: React.FC = () => {
     return filteredSales.reduce((sum, s) => sum + (Number(s?.final_amount) || 0), 0);
   }, [filteredSales]);
 
+  const handleExportSalesPdf = async () => {
+    if (filteredSales.length === 0) {
+      showToast('لا توجد فواتير مبيعات لتصديرها', 'warning');
+      return;
+    }
+
+    try {
+      setIsExportingPdf(true);
+      showToast('جاري إنشاء ملف PDF وتجهيز سجل المبيعات للطباعة...', 'info');
+      await exportSalesHistoryPDF(filteredSales, {
+        searchQuery,
+        paymentFilter,
+        totalAmount: totalSalesSum
+      });
+      showToast('تم تصدير سجل المبيعات كملف PDF بنجاح', 'success');
+    } catch (err) {
+      console.error('Error generating sales PDF:', err);
+      showToast('حدث خطأ أثناء تصدير ملف PDF', 'error');
+    } finally {
+      setIsExportingPdf(false);
+    }
+  };
+
   return (
     <div className="space-y-4 font-sans text-slate-800 animate-in fade-in duration-150">
       {/* Header */}
@@ -51,17 +80,50 @@ export const SalesHistoryView: React.FC = () => {
             <h2 className="text-lg font-black text-slate-900 flex items-center gap-2">
               سجل فواتير المبيعات الصادرة
             </h2>
-            <p className="text-xs text-slate-500">أرشيف الفواتير، طرق الدفع، وطباعة أذون الصرف</p>
+            <p className="text-xs text-slate-500">أرشيف الفواتير، طرق الدفع، وتصدير السجلات بصيغة PDF</p>
           </div>
         </div>
 
-        <div className="flex items-center gap-3">
-          <div className="px-3.5 py-1.5 rounded-lg bg-blue-50 border border-blue-200 text-xs">
+        <div className="flex flex-wrap items-center gap-3">
+          <button
+            onClick={() => setShowChart(prev => !prev)}
+            className={`px-3 py-2 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+              showChart 
+                ? 'bg-blue-50 text-blue-700 border border-blue-200 hover:bg-blue-100' 
+                : 'bg-slate-100 text-slate-700 hover:bg-slate-200 border border-slate-300'
+            }`}
+            title="إظهار/إخفاء الرسم البياني لحركة المبيعات خلال الـ 7 أيام الأخيرة"
+          >
+            <Layers className="w-3.5 h-3.5" />
+            <span>{showChart ? 'إخفاء الرسم البياني' : 'عرض الرسم البياني (7 أيام)'}</span>
+          </button>
+
+          <div className="px-3.5 py-2 rounded-lg bg-blue-50 border border-blue-200 text-xs">
             <span className="text-blue-700 font-bold">إجمالي مبيعات القائمة: </span>
             <span className="font-black text-blue-900 font-mono">{(totalSalesSum || 0).toLocaleString()} ج.م</span>
           </div>
+
+          {/* Export PDF Button using jsPDF */}
+          <button
+            onClick={handleExportSalesPdf}
+            disabled={isExportingPdf || filteredSales.length === 0}
+            className="px-4 py-2 bg-slate-900 hover:bg-slate-800 disabled:opacity-50 text-white font-bold text-xs rounded-lg shadow-sm flex items-center gap-2 transition-colors cursor-pointer"
+            title="تصدير سجل المبيعات كملف PDF قابل للطباعة باستخدام مكتبة jsPDF"
+          >
+            {isExportingPdf ? (
+              <RefreshCw className="w-4 h-4 animate-spin text-blue-400" />
+            ) : (
+              <FileDown className="w-4 h-4 text-emerald-400" />
+            )}
+            <span>تصدير كشف المبيعات (PDF)</span>
+          </button>
         </div>
       </div>
+
+      {/* Interactive Sales Movement Chart (Recharts) */}
+      {showChart && (
+        <SalesMovementChart sales={sales || []} />
+      )}
 
       {/* Filter and Search */}
       <div className="bg-white rounded-xl p-3 border border-slate-200 shadow-sm flex flex-col sm:flex-row gap-3">

@@ -1,45 +1,43 @@
 import React from 'react';
 import { 
-  ShoppingCart, 
-  Package, 
-  TrendingUp, 
-  Receipt, 
-  CreditCard, 
-  Coins, 
-  Settings,
-  Truck,
-  FileText,
-  Users
+  Store, 
+  ChevronDown, 
+  Wifi, 
+  WifiOff, 
+  Sun, 
+  Moon
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 
 export type TabType = 
-  | 'pos' 
-  | 'purchases'
   | 'products' 
+  | 'search'
+  | 'settings'
   | 'price_changes' 
   | 'customers' 
   | 'debts' 
   | 'sales' 
-  | 'cash_drawer' 
-  | 'settings';
+  | 'import';
 
 interface NavbarProps {
   activeTab: TabType;
   onTabChange?: (tab: TabType) => void;
   setActiveTab?: (tab: TabType) => void;
+  onOpenOnlineModal?: () => void;
 }
 
 export const Navbar: React.FC<NavbarProps> = ({
   activeTab,
   onTabChange,
-  setActiveTab
+  setActiveTab,
+  onOpenOnlineModal
 }) => {
   const { 
     products, 
-    customerDebts, 
-    sales,
-    purchases 
+    theme,
+    setTheme,
+    storeName,
+    isOnline
   } = useApp();
 
   const handleSelectTab = (tab: TabType) => {
@@ -48,102 +46,130 @@ export const Navbar: React.FC<NavbarProps> = ({
   };
 
   const productsCount = products?.length || 0;
-  const purchasesCount = purchases?.length || 0;
-  const customersCount = customerDebts?.length || 0;
-  const totalDebtsSum = (customerDebts || []).reduce((sum, c) => sum + (Number(c?.current_debt) || 0), 0);
-  
-  const todayStr = new Date().toISOString().split('T')[0];
-  const todaySalesSum = (sales || [])
-    .filter(s => s && typeof s.created_at === 'string' && s.created_at.startsWith(todayStr))
-    .reduce((sum, s) => sum + (Number(s?.final_amount) || 0), 0);
 
-  const tabs = [
-    { id: 'pos' as TabType, label: 'فاتورة مبيعات', icon: Receipt, badge: 'صرف' },
-    { id: 'purchases' as TabType, label: 'فاتورة مشتريات', icon: Truck, badge: purchasesCount > 0 ? purchasesCount : 'توريد' },
-    { id: 'products' as TabType, label: 'الأصناف والمخزون', icon: Package, badge: productsCount },
-    { id: 'price_changes' as TabType, label: 'قائمة الزيادة والنقصان', icon: TrendingUp, badge: null },
-    { id: 'customers' as TabType, label: 'دليل وسجل العملاء', icon: Users, badge: customersCount > 0 ? `${customersCount}` : null, badgeColor: 'bg-blue-600 text-white' },
-    { id: 'debts' as TabType, label: 'حسابات الآجل والديون', icon: CreditCard, badge: totalDebtsSum > 0 ? `${(totalDebtsSum || 0).toLocaleString()} ج.م` : null },
-    { id: 'sales' as TabType, label: 'سجل الفواتير السابقة', icon: FileText, badge: null },
-    { id: 'cash_drawer' as TabType, label: 'درج النقدية والتفقيط', icon: Coins, badge: null },
-    { id: 'settings' as TabType, label: 'الإعدادات والاسترداد', icon: Settings, badge: null },
-  ];
+  const isRedDark = theme === 'red_dark';
+  const isDark = theme === 'dark';
+
+  const headerBgClass = isRedDark 
+    ? 'bg-gradient-to-r from-red-800 via-red-700 to-rose-800 text-white border-b border-red-900 shadow-md'
+    : isDark 
+      ? 'bg-slate-900 text-white border-b border-slate-800 shadow-md' 
+      : 'bg-white text-slate-900 border-b border-slate-200 shadow-sm';
 
   return (
-    <header className="sticky top-0 z-40 bg-white border-b border-slate-200 shadow-xs">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        {/* Top bar with branding and summary metrics */}
-        <div className="flex items-center justify-between py-2.5 border-b border-slate-100">
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-lg bg-blue-600 flex items-center justify-center text-white font-black shadow-sm">
-              <Package className="w-5 h-5" />
+    <header className={`sticky top-0 z-40 transition-colors ${headerBgClass}`} dir="rtl">
+      <div className="max-w-7xl mx-auto px-3 sm:px-6 py-2.5">
+        <div className="flex items-center justify-between gap-3">
+          
+          {/* Right Side: Store Branding */}
+          <div className="flex items-center gap-2.5 shrink-0">
+            <div className={`w-9 h-9 rounded-xl flex items-center justify-center font-black shadow-xs ${
+              isRedDark ? 'bg-white text-red-700' : isDark ? 'bg-blue-600 text-white' : 'bg-blue-600 text-white'
+            }`}>
+              <Store className="w-5 h-5" />
             </div>
             <div>
-              <div className="flex items-center gap-2">
-                <h1 className="text-base font-black text-slate-900 tracking-tight">نظام الحسابات وإدارة المخازن</h1>
-                <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 font-bold border border-emerald-200">
-                  متصل وقيد التشغيل
-                </span>
-              </div>
-              <p className="text-[11px] text-slate-500">
-                فواتير مبيعات ومشتريات موحدة • متابعة المخزون • قائمة الزيادة والنقصان
+              <h1 className="text-sm sm:text-base font-black tracking-tight leading-tight">
+                {storeName || 'أولاد طه للجملة'}
+              </h1>
+              <p className={`text-[10px] hidden sm:block ${isRedDark || isDark ? 'text-white/70' : 'text-slate-500'}`}>
+                الأصناف • البحث • الإعدادات
               </p>
             </div>
           </div>
 
-          {/* Quick Metrics */}
-          <div className="hidden lg:flex items-center gap-3 text-xs">
-            <div className="px-3 py-1.5 rounded-lg bg-slate-50 border border-slate-200 flex items-center gap-2">
-              <Package className="w-4 h-4 text-blue-600" />
-              <span className="text-slate-500">الأصناف:</span>
-              <span className="font-bold text-slate-900">{productsCount} صنف</span>
-            </div>
-            <div className="px-3 py-1.5 rounded-lg bg-slate-50 border border-slate-200 flex items-center gap-2">
-              <CreditCard className="w-4 h-4 text-amber-600" />
-              <span className="text-slate-500">إجمالي الآجل:</span>
-              <span className="font-bold text-amber-700">{(totalDebtsSum || 0).toLocaleString()} ج.م</span>
-            </div>
-            <div className="px-3 py-1.5 rounded-lg bg-blue-50 border border-blue-200 flex items-center gap-2">
-              <Coins className="w-4 h-4 text-blue-600" />
-              <span className="text-blue-700">مبيعات اليوم:</span>
-              <span className="font-bold text-blue-800">{(todaySalesSum || 0).toLocaleString()} ج.م</span>
-            </div>
-          </div>
-        </div>
-
-        {/* Navigation Tabs (Clean White & Blue theme) */}
-        <nav className="flex space-x-1 space-x-reverse overflow-x-auto py-2 scrollbar-none">
-          {tabs.map(tab => {
-            const Icon = tab.icon;
-            const isActive = activeTab === tab.id;
-            return (
-              <button
-                key={tab.id}
-                id={`tab-${tab.id}`}
-                onClick={() => handleSelectTab(tab.id)}
-                className={`flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-bold whitespace-nowrap transition-colors cursor-pointer ${
-                  isActive
-                    ? 'bg-blue-600 text-white shadow-xs'
-                    : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+          {/* Center: THE PRIMARY DROPDOWN MENU (القوائم المطلوبة فقط: الأصناف، البحث، الإعدادات) */}
+          <div className="flex-1 max-w-sm mx-2">
+            <div className="relative">
+              <select
+                value={activeTab}
+                onChange={(e) => handleSelectTab(e.target.value as TabType)}
+                aria-label="اختر القائمة المطلوبة"
+                className={`w-full py-2.5 pr-10 pl-4 rounded-xl text-sm font-black appearance-none cursor-pointer transition-all border outline-none shadow-xs text-right ${
+                  isRedDark || isDark
+                    ? 'bg-black/40 border-white/20 text-white focus:border-white focus:ring-2 focus:ring-white/20'
+                    : 'bg-slate-50 hover:bg-white border-slate-300 text-slate-900 focus:border-blue-600 focus:bg-white focus:ring-2 focus:ring-blue-600/20'
                 }`}
               >
-                <Icon className={`w-4 h-4 ${isActive ? 'text-white' : 'text-slate-400'}`} />
-                <span>{tab.label}</span>
-                {tab.badge !== null && tab.badge !== undefined && (
-                  <span
-                    className={`px-1.5 py-0.2 rounded-full text-[10px] font-bold ${
-                      isActive
-                        ? 'bg-white/20 text-white'
-                        : tab.badgeColor || 'bg-slate-100 text-slate-600 border border-slate-200'
-                    }`}
-                  >
-                    {tab.badge}
-                  </span>
-                )}
+                <option value="products" className="text-slate-900 bg-white font-bold py-1">
+                  📦 الأصناف ({productsCount} صنف)
+                </option>
+                <option value="search" className="text-slate-900 bg-white font-bold py-1">
+                  🔍 البحث السريع في الأصناف
+                </option>
+                <option value="settings" className="text-slate-900 bg-white font-bold py-1">
+                  ⚙️ الإعدادات
+                </option>
+              </select>
+              <ChevronDown className="w-4 h-4 absolute right-3.5 top-1/2 -translate-y-1/2 pointer-events-none opacity-80" />
+            </div>
+          </div>
+
+          {/* Left Side: Status & Theme */}
+          <div className="flex items-center gap-1.5 shrink-0">
+            {/* Online Indicator */}
+            <button
+              type="button"
+              onClick={onOpenOnlineModal}
+              className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                isOnline 
+                  ? (isRedDark || isDark ? 'bg-emerald-950/80 text-emerald-300 border border-emerald-700/60' : 'bg-emerald-50 text-emerald-700 border border-emerald-200')
+                  : (isRedDark || isDark ? 'bg-rose-950/80 text-rose-300 border border-rose-700 animate-pulse' : 'bg-rose-50 text-rose-700 border border-rose-200 animate-pulse')
+              }`}
+              title="حالة اتصال الإنترنت"
+            >
+              {isOnline ? <Wifi className="w-3.5 h-3.5" /> : <WifiOff className="w-3.5 h-3.5" />}
+              <span className="hidden md:inline">{isOnline ? 'النت متصل' : 'غير متصل'}</span>
+            </button>
+
+            {/* Theme Toggle */}
+            <div className={`flex items-center p-0.5 rounded-xl border ${
+              isRedDark || isDark ? 'bg-black/30 border-white/20' : 'bg-slate-100 border-slate-200'
+            }`}>
+              <button
+                type="button"
+                onClick={() => setTheme('light')}
+                className={`p-1.5 rounded-lg text-xs transition-colors cursor-pointer ${
+                  theme === 'light' 
+                    ? 'bg-white text-slate-900 shadow-xs' 
+                    : (isRedDark || isDark ? 'text-white/70 hover:text-white' : 'text-slate-500 hover:text-slate-800')
+                }`}
+                title="الوضع النهاري"
+              >
+                <Sun className="w-3.5 h-3.5 text-amber-500" />
               </button>
-            );
-          })}
-        </nav>
+
+              <button
+                type="button"
+                onClick={() => setTheme('dark')}
+                className={`p-1.5 rounded-lg text-xs transition-colors cursor-pointer ${
+                  theme === 'dark' 
+                    ? 'bg-slate-800 text-white shadow-xs' 
+                    : (isRedDark || isDark ? 'text-white/70 hover:text-white' : 'text-slate-500 hover:text-slate-800')
+                }`}
+                title="الوضع الليلي"
+              >
+                <Moon className="w-3.5 h-3.5 text-blue-400" />
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setTheme('red_dark')}
+                className={`p-1.5 rounded-lg text-xs transition-colors cursor-pointer ${
+                  theme === 'red_dark' 
+                    ? 'bg-red-600 text-white shadow-xs' 
+                    : (isRedDark || isDark ? 'text-white/70 hover:text-white' : 'text-slate-500 hover:text-slate-800')
+                }`}
+                title="سمة أولاد طه"
+              >
+                <span className="w-3.5 h-3.5 rounded-full bg-red-400 flex items-center justify-center text-[9px] font-black text-white">
+                  ط
+                </span>
+              </button>
+            </div>
+          </div>
+
+        </div>
       </div>
     </header>
   );

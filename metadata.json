@@ -1,7 +1,9 @@
 {
   "name": "نظام إدارة المخازن والمبيعات والنواقص",
   "description": "نظام متكامل لإدارة المخازن، نقاط البيع (POS)، فواتير الشراء، دليل وسجل العملاء، استرداد ملفات العملاء وPDF، سجل تغيرات الأسعار والديون",
-  "requestFramePermissions": [],
+  "requestFramePermissions": [
+    "microphone"
+  ],
   "majorCapabilities": [
     "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
   ]

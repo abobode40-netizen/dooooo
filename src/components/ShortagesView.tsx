@@ -45,6 +45,7 @@ export const ShortagesView: React.FC = () => {
   const [customItemName, setCustomItemName] = useState('');
   const [itemNotes, setItemNotes] = useState('');
   const [productSearch, setProductSearch] = useState('');
+  const [shortageCategoryTab, setShortageCategoryTab] = useState<'all' | 'without_unit' | 'with_unit'>('all');
 
   // Selected List
   const activeList = useMemo(() => {
@@ -62,13 +63,93 @@ export const ShortagesView: React.FC = () => {
   const arrivedCount = currentItems.filter(i => i.arrived).length;
   const pendingCount = totalInList - arrivedCount;
 
-  // Filtered products for modal picker
-  const filteredProducts = useMemo(() => {
-    if (!productSearch) return products.slice(0, 15);
-    return products.filter(p =>
-      p.name.toLowerCase().includes(productSearch.toLowerCase()) ||
-      p.code.toLowerCase().includes(productSearch.toLowerCase())
-    ).slice(0, 20);
+  // Main List Category Filter State
+  const [mainListFilter, setMainListFilter] = useState<'all' | 'without_unit' | 'with_unit' | 'standalone'>('all');
+
+  // Quick lookup map for products
+  const productsMap = useMemo(() => {
+    const map = new Map<string, typeof products[0]>();
+    products.forEach(p => map.set(p.id, p));
+    return map;
+  }, [products]);
+
+  // Determine shortage item category
+  const getItemCategory = (item: typeof currentItems[0]): 'without_unit' | 'with_unit' | 'standalone' => {
+    if (!item.product_id) return 'standalone';
+    const prod = productsMap.get(item.product_id);
+    if (!prod || !prod.unit || prod.unit.trim() === '' || prod.unit === 'عام' || prod.unit === 'غير محدد') {
+      return 'without_unit';
+    }
+    return 'with_unit';
+  };
+
+  // Counts for current list categories
+  const listCounts = useMemo(() => {
+    let withoutUnit = 0;
+    let withUnit = 0;
+    let standalone = 0;
+    currentItems.forEach(item => {
+      const cat = getItemCategory(item);
+      if (cat === 'without_unit') withoutUnit++;
+      else if (cat === 'with_unit') withUnit++;
+      else standalone++;
+    });
+    return { withoutUnit, withUnit, standalone };
+  }, [currentItems, productsMap]);
+
+  // Filtered current items based on category tabs
+  const displayedItems = useMemo(() => {
+    if (mainListFilter === 'all') return currentItems;
+    return currentItems.filter(item => getItemCategory(item) === mainListFilter);
+  }, [currentItems, mainListFilter, productsMap]);
+
+  // Quick action to add all products lacking units to current shortage list
+  const handleAddAllWithoutUnitToShortages = () => {
+    if (!activeList) return;
+    const withoutUnitProducts = products.filter(p => !p.unit || p.unit.trim() === '' || p.unit === 'عام' || p.unit === 'غير محدد');
+    if (withoutUnitProducts.length === 0) {
+      showToast('لا توجد أصناف في الدليل بدون وحدة', 'info');
+      return;
+    }
+    const existingProductIds = new Set(currentItems.map(i => i.product_id).filter(Boolean));
+    let addedCount = 0;
+    withoutUnitProducts.forEach(p => {
+      if (!existingProductIds.has(p.id)) {
+        addShortageItem(
+          activeList.id,
+          p.name,
+          'صنف بدون وحدة مسترد',
+          p.id
+        );
+        addedCount++;
+      }
+    });
+    if (addedCount > 0) {
+      showToast(`تمت إضافة ${addedCount} صنف بدون وحدة إلى قائمة النواقص بنجاح`, 'success');
+    } else {
+      showToast('جميع الأصناف التي ليس لها وحدة موجودة بالفعل في قائمة النواقص', 'info');
+    }
+  };
+
+  // Filtered products for modal picker categorized
+  const categorizedProducts = useMemo(() => {
+    let base = products;
+    if (productSearch.trim()) {
+      const q = productSearch.toLowerCase();
+      base = products.filter(p =>
+        String(p.name || '').toLowerCase().includes(q) ||
+        String(p.code || '').toLowerCase().includes(q) ||
+        String(p.unit || '').toLowerCase().includes(q)
+      );
+    }
+
+    const withoutUnit = base.filter(p => !p.unit || String(p.unit).trim() === '' || String(p.unit).trim() === 'عام' || String(p.unit).trim() === 'غير محدد');
+    const withUnit = base.filter(p => p.unit && String(p.unit).trim() !== '' && String(p.unit).trim() !== 'عام' && String(p.unit).trim() !== 'غير محدد');
+
+    return {
+      withoutUnit,
+      withUnit
+    };
   }, [products, productSearch]);
 
   const handleCreateList = (e: React.FormEvent) => {
@@ -279,80 +360,189 @@ export const ShortagesView: React.FC = () => {
                 </div>
               </div>
 
-              {/* Items List */}
-              <div className="space-y-2">
-                {currentItems.map((item, idx) => (
-                  <div
-                    key={item.id}
-                    className={`rounded-lg p-3 border transition-colors flex items-center justify-between gap-3 ${
-                      item.arrived
-                        ? 'bg-emerald-50/40 border-emerald-200 text-slate-500'
-                        : 'bg-white border-slate-200 text-slate-900 hover:border-blue-300'
+              {/* Shortage Category Filter Buttons & Quick Add */}
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 bg-slate-50 p-3 rounded-xl border border-slate-200">
+                <div className="flex flex-wrap items-center gap-1.5 text-xs">
+                  <button
+                    type="button"
+                    onClick={() => setMainListFilter('all')}
+                    className={`px-3 py-1.5 rounded-lg font-bold transition-all cursor-pointer ${
+                      mainListFilter === 'all'
+                        ? 'bg-blue-600 text-white shadow-xs'
+                        : 'bg-white text-slate-700 hover:bg-slate-100 border border-slate-200'
                     }`}
                   >
-                    <div className="flex items-center gap-3 flex-1 min-w-0">
-                      <button
-                        onClick={() => toggleShortageItemArrived(item.id)}
-                        className={`p-1 rounded-lg transition-transform active:scale-90 cursor-pointer ${
-                          item.arrived ? 'text-emerald-600 hover:text-emerald-700' : 'text-slate-400 hover:text-blue-600'
-                        }`}
-                        title={item.arrived ? 'تعليم كغير مستلم' : 'تعليم كتم الاستلام والتوريد'}
-                      >
-                        {item.arrived ? (
-                          <CheckCircle2 className="w-5 h-5 fill-emerald-100 text-emerald-600" />
-                        ) : (
-                          <Circle className="w-5 h-5" />
-                        )}
-                      </button>
+                    الكل ({totalInList})
+                  </button>
 
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-center gap-2">
-                          <span className="text-xs font-mono text-slate-400 font-bold">#{idx + 1}</span>
-                          <h4 className={`text-xs font-bold truncate ${item.arrived ? 'line-through text-slate-400' : 'text-slate-900'}`}>
-                            {item.product_name}
-                          </h4>
+                  <button
+                    type="button"
+                    onClick={() => setMainListFilter('without_unit')}
+                    className={`px-3 py-1.5 rounded-lg font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                      mainListFilter === 'without_unit'
+                        ? 'bg-amber-600 text-white shadow-xs'
+                        : 'bg-amber-50 text-amber-900 hover:bg-amber-100 border border-amber-200'
+                    }`}
+                  >
+                    <span>الأصناف التي ليس لها وحدة</span>
+                    <span className="font-mono px-1.5 py-0.2 bg-white/80 text-amber-950 rounded-md text-[11px]">
+                      {listCounts.withoutUnit}
+                    </span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setMainListFilter('with_unit')}
+                    className={`px-3 py-1.5 rounded-lg font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                      mainListFilter === 'with_unit'
+                        ? 'bg-teal-600 text-white shadow-xs'
+                        : 'bg-teal-50 text-teal-900 hover:bg-teal-100 border border-teal-200'
+                    }`}
+                  >
+                    <span>الأصناف التي لها وحدة</span>
+                    <span className="font-mono px-1.5 py-0.2 bg-white/80 text-teal-950 rounded-md text-[11px]">
+                      {listCounts.withUnit}
+                    </span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setMainListFilter('standalone')}
+                    className={`px-3 py-1.5 rounded-lg font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                      mainListFilter === 'standalone'
+                        ? 'bg-indigo-600 text-white shadow-xs'
+                        : 'bg-indigo-50 text-indigo-900 hover:bg-indigo-100 border border-indigo-200'
+                    }`}
+                  >
+                    <span>الأصناف التي أضيفت لوحدها</span>
+                    <span className="font-mono px-1.5 py-0.2 bg-white/80 text-indigo-950 rounded-md text-[11px]">
+                      {listCounts.standalone}
+                    </span>
+                  </button>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={handleAddAllWithoutUnitToShortages}
+                  className="px-3 py-1.5 bg-amber-100 hover:bg-amber-200 text-amber-900 border border-amber-300 rounded-lg text-xs font-black transition-colors flex items-center justify-center gap-1.5 cursor-pointer shrink-0 shadow-2xs"
+                  title="استدعاء وإضافة كافة أصناف الدليل التي تفتقد للوحدة إلى قائمة النواقص هذه"
+                >
+                  <AlertTriangle className="w-3.5 h-3.5 text-amber-700" />
+                  <span>+ جلب الأصناف التي ليس لها وحدة</span>
+                </button>
+              </div>
+
+              {/* Items List */}
+              <div className="space-y-2">
+                {displayedItems.map((item, idx) => {
+                  const itemCat = getItemCategory(item);
+                  const itemProd = item.product_id ? productsMap.get(item.product_id) : null;
+
+                  return (
+                    <div
+                      key={item.id}
+                      className={`rounded-lg p-3 border transition-colors flex items-center justify-between gap-3 ${
+                        item.arrived
+                          ? 'bg-emerald-50/40 border-emerald-200 text-slate-500'
+                          : 'bg-white border-slate-200 text-slate-900 hover:border-blue-300'
+                      }`}
+                    >
+                      <div className="flex items-center gap-3 flex-1 min-w-0">
+                        <button
+                          onClick={() => toggleShortageItemArrived(item.id)}
+                          className={`p-1 rounded-lg transition-transform active:scale-90 cursor-pointer ${
+                            item.arrived ? 'text-emerald-600 hover:text-emerald-700' : 'text-slate-400 hover:text-blue-600'
+                          }`}
+                          title={item.arrived ? 'تعليم كغير مستلم' : 'تعليم كتم الاستلام والتوريد'}
+                        >
+                          {item.arrived ? (
+                            <CheckCircle2 className="w-5 h-5 fill-emerald-100 text-emerald-600" />
+                          ) : (
+                            <Circle className="w-5 h-5" />
+                          )}
+                        </button>
+
+                        <div className="min-w-0 flex-1">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span className="text-xs font-mono text-slate-400 font-bold">#{idx + 1}</span>
+                            <h4 className={`text-xs font-bold truncate ${item.arrived ? 'line-through text-slate-400' : 'text-slate-900'}`}>
+                              {item.product_name}
+                            </h4>
+
+                            {/* Category Badge */}
+                            {itemCat === 'without_unit' && (
+                              <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-amber-100 text-amber-900 border border-amber-300">
+                                ليس لها وحدة
+                              </span>
+                            )}
+                            {itemCat === 'with_unit' && (
+                              <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-teal-50 text-teal-800 border border-teal-200">
+                                الوحدة: {itemProd?.unit}
+                              </span>
+                            )}
+                            {itemCat === 'standalone' && (
+                              <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-indigo-50 text-indigo-800 border border-indigo-200">
+                                أضيف لوحده
+                              </span>
+                            )}
+                          </div>
+                          {item.notes && (
+                            <p className="text-[11px] text-amber-700 font-medium mt-0.5">
+                              ملاحظة: {item.notes}
+                            </p>
+                          )}
                         </div>
-                        {item.notes && (
-                          <p className="text-[11px] text-amber-700 font-medium mt-0.5">
-                            ملاحظة: {item.notes}
-                          </p>
-                        )}
+                      </div>
+
+                      <div className="flex items-center gap-2">
+                        <span
+                          className={`text-[10px] font-bold px-2 py-0.5 rounded ${
+                            item.arrived
+                              ? 'bg-emerald-100 text-emerald-800'
+                              : 'bg-amber-50 text-amber-800 border border-amber-200'
+                          }`}
+                        >
+                          {item.arrived ? 'تم التوريد والاستلام' : 'مطلوب توفيره'}
+                        </span>
+
+                        <button
+                          onClick={() => deleteShortageItem(item.id)}
+                          className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer"
+                          title="حذف"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
                       </div>
                     </div>
+                  );
+                })}
 
-                    <div className="flex items-center gap-2">
-                      <span
-                        className={`text-[10px] font-bold px-2 py-0.5 rounded ${
-                          item.arrived
-                            ? 'bg-emerald-100 text-emerald-800'
-                            : 'bg-amber-50 text-amber-800 border border-amber-200'
-                        }`}
-                      >
-                        {item.arrived ? 'تم التوريد والاستلام' : 'مطلوب توفيره'}
-                      </span>
-
-                      <button
-                        onClick={() => deleteShortageItem(item.id)}
-                        className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer"
-                        title="حذف"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
-                    </div>
-                  </div>
-                ))}
-
-                {currentItems.length === 0 && (
+                {displayedItems.length === 0 && (
                   <div className="py-12 text-center bg-slate-50 rounded-xl border border-dashed border-slate-300">
                     <AlertTriangle className="w-10 h-10 text-slate-400 mx-auto mb-2 opacity-60" />
-                    <p className="text-xs text-slate-500 font-bold">لا توجد نواقص مسجلة في هذه القائمة حتى الآن</p>
-                    <button
-                      onClick={() => setIsAddItemModalOpen(true)}
-                      className="mt-3 px-3.5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs rounded-lg font-bold transition-colors inline-flex items-center gap-1.5 cursor-pointer shadow-sm"
-                    >
-                      <Plus className="w-3.5 h-3.5" />
-                      إضافة صنف ناقص الآن
-                    </button>
+                    {totalInList > 0 ? (
+                      <>
+                        <p className="text-xs text-slate-500 font-bold">لا توجد أصناف في هذا التصنيف</p>
+                        <button
+                          type="button"
+                          onClick={() => setMainListFilter('all')}
+                          className="mt-2 text-xs text-blue-600 hover:underline font-bold cursor-pointer"
+                        >
+                          عرض جميع أصناف القائمة ({totalInList})
+                        </button>
+                      </>
+                    ) : (
+                      <>
+                        <p className="text-xs text-slate-500 font-bold">لا توجد نواقص مسجلة في هذه القائمة حتى الآن</p>
+                        <button
+                          onClick={() => setIsAddItemModalOpen(true)}
+                          className="mt-3 px-3.5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs rounded-lg font-bold transition-colors inline-flex items-center gap-1.5 cursor-pointer shadow-sm"
+                        >
+                          <Plus className="w-3.5 h-3.5" />
+                          إضافة صنف ناقص الآن
+                        </button>
+                      </>
+                    )}
                   </div>
                 )}
               </div>
@@ -433,46 +623,147 @@ export const ShortagesView: React.FC = () => {
 
             <form onSubmit={handleAddItem} className="p-5 space-y-4 text-xs">
               <div>
-                <label className="font-bold text-slate-700 block mb-1">
-                  اختر من دليل الأصناف (أو اكتب اسماً يدوياً بالأسفل)
-                </label>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="font-bold text-slate-800 text-xs">
+                    اختر من دليل الأصناف:
+                  </label>
+                  <span className="text-[11px] text-slate-500 font-bold">
+                    إجمالي الأصناف: {products.length}
+                  </span>
+                </div>
+
                 <div className="relative mb-2">
                   <Search className="w-4 h-4 text-slate-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
                   <input
                     type="text"
                     value={productSearch}
                     onChange={e => setProductSearch(e.target.value)}
-                    placeholder="ابحث في الأصناف..."
+                    placeholder="ابحث بالاسم أو الكود أو الوحدة..."
                     className="w-full bg-slate-50 border border-slate-300 rounded-lg pr-9 pl-3 py-1.5 text-xs text-slate-900 focus:bg-white focus:outline-none focus:border-blue-600"
                   />
                 </div>
 
-                <div className="max-h-40 overflow-y-auto space-y-1 border border-slate-200 rounded-lg p-1 bg-slate-50">
-                  {filteredProducts.map(p => (
-                    <button
-                      key={p.id}
-                      type="button"
-                      onClick={() => {
-                        setSelectedProductId(p.id);
-                        setCustomItemName('');
-                      }}
-                      className={`w-full text-right p-2 rounded-md text-xs flex items-center justify-between transition-colors cursor-pointer ${
-                        selectedProductId === p.id
-                          ? 'bg-blue-600 text-white font-bold'
-                          : 'hover:bg-slate-200 text-slate-800'
-                      }`}
-                    >
-                      <span className="truncate">{p.name}</span>
-                      <span className="text-[10px] font-mono opacity-80">#{p.code}</span>
-                    </button>
-                  ))}
+                {/* Filter Tabs inside modal */}
+                <div className="flex flex-wrap bg-slate-100 p-1 rounded-lg border border-slate-200 gap-1 mb-2 text-[11px] font-bold">
+                  <button
+                    type="button"
+                    onClick={() => setShortageCategoryTab('all')}
+                    className={`flex-1 py-1 px-2 rounded-md transition-colors text-center cursor-pointer ${
+                      shortageCategoryTab === 'all'
+                        ? 'bg-blue-600 text-white shadow-xs'
+                        : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200'
+                    }`}
+                  >
+                    الكل ({products.length})
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setShortageCategoryTab('without_unit')}
+                    className={`flex-1 py-1 px-2 rounded-md transition-colors text-center cursor-pointer ${
+                      shortageCategoryTab === 'without_unit'
+                        ? 'bg-amber-600 text-white shadow-xs'
+                        : 'text-slate-700 hover:text-slate-900 hover:bg-amber-100/60'
+                    }`}
+                  >
+                    بدون وحدة ({categorizedProducts.withoutUnit.length})
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setShortageCategoryTab('with_unit')}
+                    className={`flex-1 py-1 px-2 rounded-md transition-colors text-center cursor-pointer ${
+                      shortageCategoryTab === 'with_unit'
+                        ? 'bg-teal-600 text-white shadow-xs'
+                        : 'text-slate-700 hover:text-slate-900 hover:bg-emerald-100/60'
+                    }`}
+                  >
+                    بوحدة ({categorizedProducts.withUnit.length})
+                  </button>
+                </div>
+
+                {/* Products List Box */}
+                <div className="max-h-48 overflow-y-auto space-y-1 border border-slate-200 rounded-lg p-1.5 bg-slate-50">
+                  {/* Category: Without unit */}
+                  {(shortageCategoryTab === 'all' || shortageCategoryTab === 'without_unit') && (
+                    <div className="mb-2">
+                      <div className="px-2 py-1 bg-amber-100/80 text-amber-900 font-bold text-[10px] rounded mb-1 flex items-center justify-between">
+                        <span>الأصناف التي ليس لها وحدة ({categorizedProducts.withoutUnit.length}):</span>
+                        <span className="font-mono">بدون وحدة</span>
+                      </div>
+                      {categorizedProducts.withoutUnit.length === 0 ? (
+                        <p className="text-[11px] text-slate-400 px-2 py-1">لا توجد أصناف بدون وحدة</p>
+                      ) : (
+                        categorizedProducts.withoutUnit.map(p => (
+                          <button
+                            key={p.id}
+                            type="button"
+                            onClick={() => {
+                              setSelectedProductId(p.id);
+                              setCustomItemName('');
+                            }}
+                            className={`w-full text-right p-2 rounded-md text-xs flex items-center justify-between transition-colors cursor-pointer mb-0.5 ${
+                              selectedProductId === p.id
+                                ? 'bg-blue-600 text-white font-bold'
+                                : 'hover:bg-slate-200 text-slate-800'
+                            }`}
+                          >
+                            <span className="truncate">{p.name}</span>
+                            <span className="text-[10px] font-mono opacity-80 shrink-0">#{p.code} (بدون وحدة)</span>
+                          </button>
+                        ))
+                      )}
+                    </div>
+                  )}
+
+                  {/* Category: With unit */}
+                  {(shortageCategoryTab === 'all' || shortageCategoryTab === 'with_unit') && (
+                    <div>
+                      <div className="px-2 py-1 bg-emerald-100/80 text-emerald-900 font-bold text-[10px] rounded mb-1 flex items-center justify-between">
+                        <span>الأصناف بوحداتها المحددة ({categorizedProducts.withUnit.length}):</span>
+                        <span className="font-mono">لها وحدة</span>
+                      </div>
+                      {categorizedProducts.withUnit.length === 0 ? (
+                        <p className="text-[11px] text-slate-400 px-2 py-1">لا توجد أصناف بوحدة</p>
+                      ) : (
+                        categorizedProducts.withUnit.map(p => (
+                          <button
+                            key={p.id}
+                            type="button"
+                            onClick={() => {
+                              setSelectedProductId(p.id);
+                              setCustomItemName('');
+                            }}
+                            className={`w-full text-right p-2 rounded-md text-xs flex items-center justify-between transition-colors cursor-pointer mb-0.5 ${
+                              selectedProductId === p.id
+                                ? 'bg-blue-600 text-white font-bold'
+                                : 'hover:bg-slate-200 text-slate-800'
+                            }`}
+                          >
+                            <span className="truncate">{p.name}</span>
+                            <div className="flex items-center gap-1 shrink-0">
+                              <span className="text-[10px] bg-emerald-50 text-emerald-800 border border-emerald-200 px-1.5 py-0.2 rounded font-bold">
+                                {p.unit}
+                              </span>
+                              <span className="text-[10px] font-mono opacity-80">#{p.code}</span>
+                            </div>
+                          </button>
+                        ))
+                      )}
+                    </div>
+                  )}
                 </div>
               </div>
 
-              <div>
-                <label className="font-bold text-slate-700 block mb-1">
-                  أو اكتب اسم صنف مخصص (غير موجود في الدليل):
-                </label>
+              {/* Category 3: Custom item added alone */}
+              <div className="pt-2 border-t border-slate-200">
+                <div className="flex items-center justify-between mb-1">
+                  <label className="font-bold text-slate-900 block text-xs flex items-center gap-1.5">
+                    <span className="w-2 h-2 rounded-full bg-blue-600"></span>
+                    أو إضافة صنف يدوياً أضيف لوحده (غير موجود بالدليل):
+                  </label>
+                  <span className="text-[10px] bg-blue-50 text-blue-800 px-2 py-0.5 rounded font-bold border border-blue-200">
+                    أُضيف لوحده
+                  </span>
+                </div>
                 <input
                   type="text"
                   value={customItemName}
@@ -480,8 +771,8 @@ export const ShortagesView: React.FC = () => {
                     setCustomItemName(e.target.value);
                     if (e.target.value) setSelectedProductId('');
                   }}
-                  placeholder="مثال: مناديل جود كير 550 منديل"
-                  className="w-full bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 text-slate-900 focus:bg-white focus:outline-none focus:border-blue-600"
+                  placeholder="اكتب اسم الصنف الناقص المضاف لوحده..."
+                  className="w-full bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 text-slate-900 focus:bg-white focus:outline-none focus:border-blue-600 font-bold"
                 />
               </div>
 
